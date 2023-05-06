@@ -105,6 +105,9 @@ pub enum Error {
 
     #[snafu(display("Invalid timestamp precision: {}", precision))]
     InvalidTimestampPrecision { precision: u64, location: Location },
+
+    #[snafu(display("Invalid duration precision: {}", precision))]
+    InvalidDurationPrecision { precision: u64, location: Location },
 }
 
 impl ErrorExt for Error {

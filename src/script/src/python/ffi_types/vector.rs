@@ -524,6 +524,7 @@ pub fn val_to_pyobj(val: value::Value, vm: &VirtualMachine) -> PyResult {
         value::Value::DateTime(v) => vm.ctx.new_int(v.val()).into(),
         // FIXME(dennis): lose the timestamp unit here
         Value::Timestamp(v) => vm.ctx.new_int(v.value()).into(),
+        Value::Duration(v) => vm.ctx.new_int(v.value()).into(),
         value::Value::List(list) => {
             let list = list.items().as_ref();
             match list {

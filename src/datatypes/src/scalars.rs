@@ -14,7 +14,7 @@
 
 use std::any::Any;
 
-use common_time::{Date, DateTime};
+use common_time::{Date, DateTime, Interval};
 
 use crate::types::{
     Float32Type, Float64Type, Int16Type, Int32Type, Int64Type, Int8Type, UInt16Type, UInt32Type,
@@ -22,8 +22,8 @@ use crate::types::{
 };
 use crate::value::{ListValue, ListValueRef, Value};
 use crate::vectors::{
-    BinaryVector, BooleanVector, DateTimeVector, DateVector, ListVector, MutableVector,
-    PrimitiveVector, StringVector, Vector,
+    BinaryVector, BooleanVector, DateTimeVector, DateVector, IntervalVector, ListVector,
+    MutableVector, PrimitiveVector, StringVector, Vector,
 };
 
 fn get_iter_capacity<T, I: Iterator<Item = T>>(iter: &I) -> usize {
@@ -292,6 +292,27 @@ impl Scalar for DateTime {
 
 impl<'a> ScalarRef<'a> for DateTime {
     type ScalarType = DateTime;
+
+    fn to_owned_scalar(&self) -> Self::ScalarType {
+        *self
+    }
+}
+
+impl Scalar for Interval {
+    type VectorType = IntervalVector;
+    type RefType<'a> = Interval;
+
+    fn as_scalar_ref(&self) -> Self::RefType<'_> {
+        *self
+    }
+
+    fn upcast_gat<'short, 'long: 'short>(long: Self::RefType<'long>) -> Self::RefType<'short> {
+        long
+    }
+}
+
+impl<'a> ScalarRef<'a> for Interval {
+    type ScalarType = Interval;
 
     fn to_owned_scalar(&self) -> Self::ScalarType {
         *self

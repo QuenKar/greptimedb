@@ -110,6 +110,39 @@ impl<T: LogicalPrimitiveType> PrimitiveVector<T> {
         Ok(Self::new(concrete_array))
     }
 
+    pub fn try_from_arrow_duration_array(array: impl AsRef<dyn Array>) -> Result<Self> {
+        let array = array.as_ref();
+        let array_data = match array.data_type() {
+            DataType::Duration(unit) => match unit {
+                arrow_schema::TimeUnit::Second => array
+                    .as_any()
+                    .downcast_ref::<arrow::array::DurationSecondArray>()
+                    .unwrap()
+                    .to_data(),
+                arrow_schema::TimeUnit::Millisecond => array
+                    .as_any()
+                    .downcast_ref::<arrow::array::DurationMillisecondArray>()
+                    .unwrap()
+                    .to_data(),
+                arrow_schema::TimeUnit::Microsecond => array
+                    .as_any()
+                    .downcast_ref::<arrow::array::DurationMicrosecondArray>()
+                    .unwrap()
+                    .to_data(),
+                arrow_schema::TimeUnit::Nanosecond => array
+                    .as_any()
+                    .downcast_ref::<arrow::array::DurationNanosecondArray>()
+                    .unwrap()
+                    .to_data(),
+            },
+            _ => {
+                unreachable!()
+            }
+        };
+        let concrete_array = PrimitiveArray::<T::ArrowPrimitive>::from(array_data);
+        Ok(Self::new(concrete_array))
+    }
+
     pub fn from_slice<P: AsRef<[T::Native]>>(slice: P) -> Self {
         let iter = slice.as_ref().iter().copied();
         Self {

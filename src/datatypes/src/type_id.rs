@@ -41,11 +41,20 @@ pub enum LogicalTypeId {
     /// Datetime representing the elapsed time since UNIX epoch (1970-01-01) in
     /// seconds/milliseconds/microseconds/nanoseconds, determined by precision.
     DateTime,
+    /// Duration represents a length of time with nanosecond precision.
+    DurationSecond,
+    DurationMillisecond,
+    DurationMicrosecond,
+    DurationNanosecond,
 
     TimestampSecond,
     TimestampMillisecond,
     TimestampMicrosecond,
     TimestampNanosecond,
+
+    IntervalYearMonth,
+    IntervalDayTime,
+    IntervalMonthDayNano,
 
     List,
     Dictionary,
@@ -78,6 +87,10 @@ impl LogicalTypeId {
             LogicalTypeId::Binary => ConcreteDataType::binary_datatype(),
             LogicalTypeId::Date => ConcreteDataType::date_datatype(),
             LogicalTypeId::DateTime => ConcreteDataType::datetime_datatype(),
+            LogicalTypeId::DurationSecond => ConcreteDataType::duration_second_datatype(),
+            LogicalTypeId::DurationMillisecond => ConcreteDataType::duration_millisecond_datatype(),
+            LogicalTypeId::DurationMicrosecond => ConcreteDataType::duration_microsecond_datatype(),
+            LogicalTypeId::DurationNanosecond => ConcreteDataType::duration_nanosecond_datatype(),
             LogicalTypeId::TimestampSecond => ConcreteDataType::timestamp_second_datatype(),
             LogicalTypeId::TimestampMillisecond => {
                 ConcreteDataType::timestamp_millisecond_datatype()
@@ -93,6 +106,9 @@ impl LogicalTypeId {
                 ConcreteDataType::null_datatype(),
                 ConcreteDataType::null_datatype(),
             ),
+            LogicalTypeId::IntervalMonthDayNano => ConcreteDataType::interval_month_day_nano_datatype(),
+            LogicalTypeId::IntervalYearMonth => todo!(),
+            LogicalTypeId::IntervalDayTime => todo!(),
         }
     }
 }

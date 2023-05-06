@@ -30,8 +30,10 @@ mod boolean;
 mod constant;
 mod date;
 mod datetime;
+mod duration;
 mod eq;
 mod helper;
+mod interval;
 mod list;
 mod null;
 mod operations;
@@ -45,7 +47,13 @@ pub use boolean::{BooleanVector, BooleanVectorBuilder};
 pub use constant::ConstantVector;
 pub use date::{DateVector, DateVectorBuilder};
 pub use datetime::{DateTimeVector, DateTimeVectorBuilder};
+pub use duration::{
+    DurationMicrosecondVector, DurationMicrosecondVectorBuilder, DurationMillisecondVector,
+    DurationMillisecondVectorBuilder, DurationNanosecondVector, DurationNanosecondVectorBuilder,
+    DurationSecondVector, DurationSecondVectorBuilder,
+};
 pub use helper::Helper;
+pub use interval::{IntervalVector, IntervalVectorBuilder};
 pub use list::{ListIter, ListVector, ListVectorBuilder};
 pub use null::{NullVector, NullVectorBuilder};
 pub use primitive::{

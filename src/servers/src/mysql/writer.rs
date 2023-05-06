@@ -182,6 +182,8 @@ impl<'a, W: AsyncWrite + Unpin> MysqlResultWriter<'a, W> {
                     Value::DateTime(v) => row_writer.write_col(v.to_chrono_datetime())?,
                     Value::Timestamp(v) => row_writer
                         .write_col(v.to_timezone_aware_string(query_context.time_zone()))?,
+                    Value::Duration(v) => row_writer.write_col(v.to_string())?,
+                    Value::Interval(v) => row_writer.write_col(v.to_string())?,
                     Value::List(_) => {
                         return Err(Error::Internal {
                             err_msg: format!(

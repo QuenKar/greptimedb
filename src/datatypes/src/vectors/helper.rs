@@ -24,6 +24,10 @@ use arrow::datatypes::{DataType as ArrowDataType, TimeUnit};
 use datafusion_common::ScalarValue;
 use snafu::{OptionExt, ResultExt};
 
+use super::{
+    DurationMicrosecondVector, DurationMillisecondVector, DurationNanosecondVector,
+    DurationSecondVector,
+};
 use crate::data_type::ConcreteDataType;
 use crate::error::{self, Result};
 use crate::scalars::{Scalar, ScalarVectorBuilder};
@@ -261,10 +265,23 @@ impl Helper {
                     TimestampNanosecondVector::try_from_arrow_timestamp_array(array)?,
                 ),
             },
+            ArrowDataType::Duration(unit) => match unit {
+                TimeUnit::Second => {
+                    Arc::new(DurationSecondVector::try_from_arrow_duration_array(array)?)
+                }
+                TimeUnit::Millisecond => Arc::new(
+                    DurationMillisecondVector::try_from_arrow_duration_array(array)?,
+                ),
+                TimeUnit::Microsecond => Arc::new(
+                    DurationMicrosecondVector::try_from_arrow_duration_array(array)?,
+                ),
+                TimeUnit::Nanosecond => Arc::new(
+                    DurationNanosecondVector::try_from_arrow_duration_array(array)?,
+                ),
+            },
             ArrowDataType::Float16
             | ArrowDataType::Time32(_)
             | ArrowDataType::Time64(_)
-            | ArrowDataType::Duration(_)
             | ArrowDataType::Interval(_)
             | ArrowDataType::LargeList(_)
             | ArrowDataType::FixedSizeList(_, _)

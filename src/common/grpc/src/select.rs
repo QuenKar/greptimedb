@@ -14,12 +14,13 @@
 
 use api::v1::column::Values;
 use common_base::BitVec;
-use datatypes::types::{TimestampType, WrapperType};
+use datatypes::types::{DurationType, TimestampType, WrapperType};
 use datatypes::vectors::{
-    BinaryVector, BooleanVector, DateTimeVector, DateVector, Float32Vector, Float64Vector,
-    Int16Vector, Int32Vector, Int64Vector, Int8Vector, StringVector, TimestampMicrosecondVector,
-    TimestampMillisecondVector, TimestampNanosecondVector, TimestampSecondVector, UInt16Vector,
-    UInt32Vector, UInt64Vector, UInt8Vector, VectorRef,
+    BinaryVector, BooleanVector, DateTimeVector, DateVector, DurationMicrosecondVector,
+    DurationMillisecondVector, DurationNanosecondVector, DurationSecondVector, Float32Vector,
+    Float64Vector, Int16Vector, Int32Vector, Int64Vector, Int8Vector, StringVector,
+    TimestampMicrosecondVector, TimestampMillisecondVector, TimestampNanosecondVector,
+    TimestampSecondVector, UInt16Vector, UInt32Vector, UInt64Vector, UInt8Vector, VectorRef,
 };
 use snafu::OptionExt;
 
@@ -67,7 +68,7 @@ macro_rules! convert_arrow_array_to_grpc_vals {
                     return Ok(vals);
                 },
             )+
-            ConcreteDataType::Null(_) | ConcreteDataType::List(_) | ConcreteDataType::Dictionary(_) => unreachable!("Should not send {:?} in gRPC", $data_type),
+            ConcreteDataType::Null(_) | ConcreteDataType::List(_) | ConcreteDataType::Dictionary(_) | ConcreteDataType::Interval(_) => unreachable!("Should not send {:?} in gRPC", $data_type),
         }
     }};
 }
@@ -167,7 +168,34 @@ pub fn values(arrays: &[VectorRef]) -> Result<Values> {
             TimestampNanosecondVector,
             ts_nanosecond_values,
             |x| { x.into_native() }
+        ),
+        // TODO(QuenKar): Add support for Duration
+        (
+            ConcreteDataType::Duration(DurationType::Second(_)),
+            DurationSecondVector,
+            ts_second_values,
+            |x| { x.into_native() }
+        ),
+        (
+            ConcreteDataType::Duration(DurationType::Millisecond(_)),
+            DurationMillisecondVector,
+            ts_millisecond_values,
+            |x| { x.into_native() }
+        ),
+        (
+            ConcreteDataType::Duration(DurationType::Microsecond(_)),
+            DurationMicrosecondVector,
+            ts_microsecond_values,
+            |x| { x.into_native() }
+        ),
+        (
+            ConcreteDataType::Duration(DurationType::Nanosecond(_)),
+            DurationNanosecondVector,
+            ts_nanosecond_values,
+            |x| { x.into_native() }
         )
+        // TODO(QuenKar): Add support for Interval
+        
     )
 }
 

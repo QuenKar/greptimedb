@@ -28,13 +28,14 @@ use datatypes::data_type::{ConcreteDataType, DataType};
 use datatypes::prelude::{ValueRef, VectorRef};
 use datatypes::scalars::ScalarVector;
 use datatypes::schema::SchemaRef;
-use datatypes::types::{Int16Type, Int8Type, TimestampType, UInt16Type, UInt8Type};
+use datatypes::types::{DurationType, Int16Type, Int8Type, TimestampType, UInt16Type, UInt8Type};
 use datatypes::value::Value;
 use datatypes::vectors::{
-    BinaryVector, BooleanVector, DateTimeVector, DateVector, Float32Vector, Float64Vector,
-    Int32Vector, Int64Vector, PrimitiveVector, StringVector, TimestampMicrosecondVector,
-    TimestampMillisecondVector, TimestampNanosecondVector, TimestampSecondVector, UInt32Vector,
-    UInt64Vector,
+    BinaryVector, BooleanVector, DateTimeVector, DateVector, DurationMicrosecondVector,
+    DurationMillisecondVector, DurationNanosecondVector, DurationSecondVector, Float32Vector,
+    Float64Vector, Int32Vector, Int64Vector, PrimitiveVector, StringVector,
+    TimestampMicrosecondVector, TimestampMillisecondVector, TimestampNanosecondVector,
+    TimestampSecondVector, UInt32Vector, UInt64Vector, IntervalVector,
 };
 use snafu::{ensure, OptionExt, ResultExt};
 use table::metadata::TableId;
@@ -387,9 +388,24 @@ fn values_to_vector(data_type: &ConcreteDataType, values: Values) -> VectorRef {
                 values.ts_nanosecond_values,
             )),
         },
+        ConcreteDataType::Duration(unit) => match unit {
+            DurationType::Second(_) => {
+                Arc::new(DurationSecondVector::from_vec(values.ts_second_values))
+            }
+            DurationType::Millisecond(_) => Arc::new(DurationMillisecondVector::from_vec(
+                values.ts_millisecond_values,
+            )),
+            DurationType::Microsecond(_) => Arc::new(DurationMicrosecondVector::from_vec(
+                values.ts_microsecond_values,
+            )),
+            DurationType::Nanosecond(_) => Arc::new(DurationNanosecondVector::from_vec(
+                values.ts_nanosecond_values,
+            )),
+        },
         ConcreteDataType::Null(_) | ConcreteDataType::List(_) | ConcreteDataType::Dictionary(_) => {
             unreachable!()
         }
+        ConcreteDataType::Interval(_) => todo!("Interval type is not supported yet"),
     }
 }
 
@@ -498,6 +514,27 @@ fn convert_values(data_type: &ConcreteDataType, values: Values) -> Vec<Value> {
         ConcreteDataType::Null(_) | ConcreteDataType::List(_) | ConcreteDataType::Dictionary(_) => {
             unreachable!()
         }
+        ConcreteDataType::Duration(DurationType::Second(_)) => values
+            .ts_second_values
+            .into_iter()
+            .map(|v| Value::Timestamp(Timestamp::new_second(v)))
+            .collect(),
+        ConcreteDataType::Duration(DurationType::Millisecond(_)) => values
+            .ts_millisecond_values
+            .into_iter()
+            .map(|v| Value::Timestamp(Timestamp::new_millisecond(v)))
+            .collect(),
+        ConcreteDataType::Duration(DurationType::Microsecond(_)) => values
+            .ts_microsecond_values
+            .into_iter()
+            .map(|v| Value::Timestamp(Timestamp::new_microsecond(v)))
+            .collect(),
+        ConcreteDataType::Duration(DurationType::Nanosecond(_)) => values
+            .ts_nanosecond_values
+            .into_iter()
+            .map(|v| Value::Timestamp(Timestamp::new_nanosecond(v)))
+            .collect(),
+        ConcreteDataType::Interval(_) => todo!(),
     }
 }
 
@@ -515,10 +552,11 @@ mod tests {
     use api::v1::{Column, ColumnDataType};
     use common_base::BitVec;
     use common_catalog::consts::MITO_ENGINE;
+    use common_time::Duration;
     use common_time::timestamp::Timestamp;
     use datatypes::data_type::ConcreteDataType;
     use datatypes::schema::{ColumnSchema, SchemaBuilder};
-    use datatypes::types::{TimestampMillisecondType, TimestampSecondType, TimestampType};
+    use datatypes::types::{TimestampMillisecondType, TimestampSecondType, TimestampType, DurationSecondType, DurationMillisecondType};
     use datatypes::value::Value;
     use paste::paste;
     use snafu::ResultExt;
@@ -882,6 +920,39 @@ mod tests {
             Value::Timestamp(Timestamp::new_millisecond(1_i64)),
             Value::Timestamp(Timestamp::new_millisecond(2_i64)),
             Value::Timestamp(Timestamp::new_millisecond(3_i64)),
+        ];
+        assert_eq!(expect, actual);
+    }
+
+    #[test]
+    fn test_convert_duration_values(){
+        // second
+        let actual = convert_values(
+            &ConcreteDataType::Duration(DurationType::Second(DurationSecondType)),
+            Values {
+                ts_second_values: vec![1_i64, 2_i64, 3_i64],
+                ..Default::default()
+            },
+        );
+        let expect = vec![
+            Value::Duration(Duration::new_second(1_i64)),
+            Value::Duration(Duration::new_second(2_i64)),
+            Value::Duration(Duration::new_second(3_i64)),
+        ];
+        assert_eq!(expect, actual);
+
+        // millisecond
+        let actual = convert_values(
+            &ConcreteDataType::Duration(DurationType::Millisecond(DurationMillisecondType)),
+            Values {
+                ts_millisecond_values: vec![1_i64, 2_i64, 3_i64],
+                ..Default::default()
+            },
+        );
+        let expect = vec![
+            Value::Duration(Duration::new_millisecond(1_i64)),
+            Value::Duration(Duration::new_millisecond(2_i64)),
+            Value::Duration(Duration::new_millisecond(3_i64)),
         ];
         assert_eq!(expect, actual);
     }

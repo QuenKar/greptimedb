@@ -23,10 +23,12 @@ use serde::{Deserialize, Serialize};
 use crate::error::{self, Error, Result};
 use crate::type_id::LogicalTypeId;
 use crate::types::{
-    BinaryType, BooleanType, DateTimeType, DateType, DictionaryType, Float32Type, Float64Type,
-    Int16Type, Int32Type, Int64Type, Int8Type, ListType, NullType, StringType,
-    TimestampMicrosecondType, TimestampMillisecondType, TimestampNanosecondType,
-    TimestampSecondType, TimestampType, UInt16Type, UInt32Type, UInt64Type, UInt8Type,
+    BinaryType, BooleanType, DateTimeType, DateType, DictionaryType, DurationMicrosecondType,
+    DurationMillisecondType, DurationNanosecondType, DurationSecondType, DurationType, Float32Type,
+    Float64Type, Int16Type, Int32Type, Int64Type, Int8Type, IntervalMonthDayNanoType, ListType,
+    NullType, StringType, TimestampMicrosecondType, TimestampMillisecondType,
+    TimestampNanosecondType, TimestampSecondType, TimestampType, UInt16Type, UInt32Type,
+    UInt64Type, UInt8Type,
 };
 use crate::value::Value;
 use crate::vectors::MutableVector;
@@ -56,7 +58,9 @@ pub enum ConcreteDataType {
     // Date types:
     Date(DateType),
     DateTime(DateTimeType),
+    Duration(DurationType),
     Timestamp(TimestampType),
+    Interval(IntervalMonthDayNanoType),
 
     // Compound types:
     List(ListType),
@@ -85,6 +89,8 @@ impl fmt::Display for ConcreteDataType {
             ConcreteDataType::Timestamp(_) => write!(f, "Timestamp"),
             ConcreteDataType::List(_) => write!(f, "List"),
             ConcreteDataType::Dictionary(_) => write!(f, "Dictionary"),
+            ConcreteDataType::Duration(_) => write!(f, "Duration"),
+            ConcreteDataType::Interval(_) => write!(f, "Interval"),
         }
     }
 }
@@ -110,6 +116,7 @@ impl ConcreteDataType {
                 | ConcreteDataType::Date(_)
                 | ConcreteDataType::DateTime(_)
                 | ConcreteDataType::Timestamp(_)
+                | ConcreteDataType::Duration(_)
         )
     }
 
@@ -123,6 +130,7 @@ impl ConcreteDataType {
                 | ConcreteDataType::Date(_)
                 | ConcreteDataType::DateTime(_)
                 | ConcreteDataType::Timestamp(_)
+                | ConcreteDataType::Duration(_)
         )
     }
 
@@ -208,7 +216,8 @@ impl TryFrom<&ArrowDataType> for ConcreteDataType {
             ArrowDataType::Float64 => Self::float64_datatype(),
             ArrowDataType::Date32 => Self::date_datatype(),
             ArrowDataType::Date64 => Self::datetime_datatype(),
-            ArrowDataType::Timestamp(u, _) => ConcreteDataType::from_arrow_time_unit(u),
+            ArrowDataType::Timestamp(u, _) => ConcreteDataType::from_arrow_time_unit_timestamp(u),
+            ArrowDataType::Duration(u) => ConcreteDataType::from_arrow_time_unit_duration(u),
             ArrowDataType::Binary | ArrowDataType::LargeBinary => Self::binary_datatype(),
             ArrowDataType::Utf8 | ArrowDataType::LargeUtf8 => Self::string_datatype(),
             ArrowDataType::List(field) => Self::List(ListType::new(
@@ -280,13 +289,52 @@ impl ConcreteDataType {
         }
     }
 
+    pub fn duration_second_datatype() -> Self {
+        ConcreteDataType::Duration(DurationType::Second(DurationSecondType::default()))
+    }
+
+    pub fn duration_millisecond_datatype() -> Self {
+        ConcreteDataType::Duration(DurationType::Millisecond(DurationMillisecondType::default()))
+    }
+
+    pub fn duration_microsecond_datatype() -> Self {
+        ConcreteDataType::Duration(DurationType::Microsecond(DurationMicrosecondType::default()))
+    }
+
+    pub fn duration_nanosecond_datatype() -> Self {
+        ConcreteDataType::Duration(DurationType::Nanosecond(DurationNanosecondType::default()))
+    }
+
+    pub fn duration_datatype(unit: TimeUnit) -> Self {
+        match unit {
+            TimeUnit::Second => Self::duration_second_datatype(),
+            TimeUnit::Millisecond => Self::duration_millisecond_datatype(),
+            TimeUnit::Microsecond => Self::duration_microsecond_datatype(),
+            TimeUnit::Nanosecond => Self::duration_nanosecond_datatype(),
+        }
+    }
+
+    pub fn interval_month_day_nano_datatype() -> Self {
+        ConcreteDataType::Interval(IntervalMonthDayNanoType::default())
+    }
+
     /// Converts from arrow timestamp unit to
-    pub fn from_arrow_time_unit(t: &ArrowTimeUnit) -> Self {
+    pub fn from_arrow_time_unit_timestamp(t: &ArrowTimeUnit) -> Self {
         match t {
             ArrowTimeUnit::Second => Self::timestamp_second_datatype(),
             ArrowTimeUnit::Millisecond => Self::timestamp_millisecond_datatype(),
             ArrowTimeUnit::Microsecond => Self::timestamp_microsecond_datatype(),
             ArrowTimeUnit::Nanosecond => Self::timestamp_nanosecond_datatype(),
+        }
+    }
+
+    // Converts from arrow duration unit to duration datatype
+    pub fn from_arrow_time_unit_duration(t: &ArrowTimeUnit) -> Self {
+        match t {
+            ArrowTimeUnit::Second => Self::duration_second_datatype(),
+            ArrowTimeUnit::Millisecond => Self::duration_millisecond_datatype(),
+            ArrowTimeUnit::Microsecond => Self::duration_microsecond_datatype(),
+            ArrowTimeUnit::Nanosecond => Self::duration_nanosecond_datatype(),
         }
     }
 
@@ -423,19 +471,39 @@ mod tests {
     fn test_from_arrow_timestamp() {
         assert_eq!(
             ConcreteDataType::timestamp_millisecond_datatype(),
-            ConcreteDataType::from_arrow_time_unit(&ArrowTimeUnit::Millisecond)
+            ConcreteDataType::from_arrow_time_unit_timestamp(&ArrowTimeUnit::Millisecond)
         );
         assert_eq!(
             ConcreteDataType::timestamp_microsecond_datatype(),
-            ConcreteDataType::from_arrow_time_unit(&ArrowTimeUnit::Microsecond)
+            ConcreteDataType::from_arrow_time_unit_timestamp(&ArrowTimeUnit::Microsecond)
         );
         assert_eq!(
             ConcreteDataType::timestamp_nanosecond_datatype(),
-            ConcreteDataType::from_arrow_time_unit(&ArrowTimeUnit::Nanosecond)
+            ConcreteDataType::from_arrow_time_unit_timestamp(&ArrowTimeUnit::Nanosecond)
         );
         assert_eq!(
             ConcreteDataType::timestamp_second_datatype(),
-            ConcreteDataType::from_arrow_time_unit(&ArrowTimeUnit::Second)
+            ConcreteDataType::from_arrow_time_unit_timestamp(&ArrowTimeUnit::Second)
+        );
+    }
+
+    #[test]
+    fn test_from_arrow_duration() {
+        assert_eq!(
+            ConcreteDataType::duration_millisecond_datatype(),
+            ConcreteDataType::from_arrow_time_unit_duration(&ArrowTimeUnit::Millisecond)
+        );
+        assert_eq!(
+            ConcreteDataType::duration_microsecond_datatype(),
+            ConcreteDataType::from_arrow_time_unit_duration(&ArrowTimeUnit::Microsecond)
+        );
+        assert_eq!(
+            ConcreteDataType::duration_nanosecond_datatype(),
+            ConcreteDataType::from_arrow_time_unit_duration(&ArrowTimeUnit::Nanosecond)
+        );
+        assert_eq!(
+            ConcreteDataType::duration_second_datatype(),
+            ConcreteDataType::from_arrow_time_unit_duration(&ArrowTimeUnit::Second)
         );
     }
 
@@ -497,6 +565,10 @@ mod tests {
         assert!(ConcreteDataType::timestamp_millisecond_datatype().is_stringifiable());
         assert!(ConcreteDataType::timestamp_microsecond_datatype().is_stringifiable());
         assert!(ConcreteDataType::timestamp_nanosecond_datatype().is_stringifiable());
+        assert!(ConcreteDataType::duration_second_datatype().is_stringifiable());
+        assert!(ConcreteDataType::duration_millisecond_datatype().is_stringifiable());
+        assert!(ConcreteDataType::duration_microsecond_datatype().is_stringifiable());
+        assert!(ConcreteDataType::duration_nanosecond_datatype().is_stringifiable());
     }
 
     #[test]
@@ -511,6 +583,10 @@ mod tests {
         assert!(ConcreteDataType::timestamp_millisecond_datatype().is_signed());
         assert!(ConcreteDataType::timestamp_microsecond_datatype().is_signed());
         assert!(ConcreteDataType::timestamp_nanosecond_datatype().is_signed());
+        assert!(ConcreteDataType::duration_second_datatype().is_signed());
+        assert!(ConcreteDataType::duration_millisecond_datatype().is_signed());
+        assert!(ConcreteDataType::duration_microsecond_datatype().is_signed());
+        assert!(ConcreteDataType::duration_nanosecond_datatype().is_signed());
 
         assert!(!ConcreteDataType::uint8_datatype().is_signed());
         assert!(!ConcreteDataType::uint16_datatype().is_signed());
@@ -533,6 +609,10 @@ mod tests {
         assert!(!ConcreteDataType::timestamp_millisecond_datatype().is_unsigned());
         assert!(!ConcreteDataType::timestamp_microsecond_datatype().is_unsigned());
         assert!(!ConcreteDataType::timestamp_nanosecond_datatype().is_unsigned());
+        assert!(!ConcreteDataType::duration_second_datatype().is_unsigned());
+        assert!(!ConcreteDataType::duration_millisecond_datatype().is_unsigned());
+        assert!(!ConcreteDataType::duration_microsecond_datatype().is_unsigned());
+        assert!(!ConcreteDataType::duration_nanosecond_datatype().is_unsigned());
 
         assert!(ConcreteDataType::uint8_datatype().is_unsigned());
         assert!(ConcreteDataType::uint16_datatype().is_unsigned());

@@ -15,12 +15,13 @@
 use std::sync::Arc;
 
 use crate::data_type::DataType;
-use crate::types::TimestampType;
+use crate::types::{DurationType, TimestampType};
 use crate::vectors::constant::ConstantVector;
 use crate::vectors::{
-    BinaryVector, BooleanVector, DateTimeVector, DateVector, ListVector, PrimitiveVector,
-    StringVector, TimestampMicrosecondVector, TimestampMillisecondVector,
-    TimestampNanosecondVector, TimestampSecondVector, Vector,
+    BinaryVector, BooleanVector, DateTimeVector, DateVector, DurationMicrosecondVector,
+    DurationMillisecondVector, DurationNanosecondVector, DurationSecondVector, ListVector,
+    PrimitiveVector, StringVector, TimestampMicrosecondVector, TimestampMillisecondVector,
+    TimestampNanosecondVector, TimestampSecondVector, Vector, IntervalVector,
 };
 use crate::with_match_primitive_type_id;
 
@@ -106,6 +107,13 @@ fn equal(lhs: &dyn Vector, rhs: &dyn Vector) -> bool {
                 unreachable!("should not compare {} with {}", lhs.vector_type_name(), rhs.vector_type_name())
             })
         }
+        Duration(d) => match d {
+            DurationType::Second(_) => is_vector_eq!(DurationSecondVector, lhs, rhs),
+            DurationType::Millisecond(_) => is_vector_eq!(DurationMillisecondVector, lhs, rhs),
+            DurationType::Microsecond(_) => is_vector_eq!(DurationMicrosecondVector, lhs, rhs),
+            DurationType::Nanosecond(_) => is_vector_eq!(DurationNanosecondVector, lhs, rhs),
+        },
+        Interval(_) => is_vector_eq!(IntervalVector, lhs, rhs),
     }
 }
 

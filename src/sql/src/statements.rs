@@ -159,7 +159,8 @@ pub fn sql_number_to_value(data_type: &ConcreteDataType, n: &str) -> Result<Valu
         (Int64, i64),
         (Float64, f64),
         (Float32, f32),
-        (Timestamp, i64)
+        (Timestamp, i64),
+        (Duration, i64)
     )
     // TODO(hl): also Date/DateTime
 }
@@ -230,6 +231,7 @@ pub fn value_to_sql_value(val: &Value) -> Result<SqlValue> {
         Value::Date(d) => SqlValue::SingleQuotedString(d.to_string()),
         Value::DateTime(d) => SqlValue::SingleQuotedString(d.to_string()),
         Value::Timestamp(ts) => SqlValue::SingleQuotedString(ts.to_iso8601_string()),
+        Value::Duration(d) => SqlValue::SingleQuotedString(d.to_string()),
         Value::String(s) => SqlValue::SingleQuotedString(s.as_utf8().to_string()),
         Value::Null => SqlValue::Null,
         // TODO(dennis): supports binary
@@ -396,10 +398,15 @@ pub fn concrete_data_type_to_sql_data_type(data_type: &ConcreteDataType) -> Resu
             Some(ts_type.precision()),
             TimezoneInfo::None,
         )),
+        ConcreteDataType::Duration(d_type) => Ok(SqlDataType::Timestamp(
+            Some(d_type.precision()),
+            TimezoneInfo::None,
+        )),
         ConcreteDataType::Binary(_) => Ok(SqlDataType::Varbinary(None)),
         ConcreteDataType::Null(_) | ConcreteDataType::List(_) | ConcreteDataType::Dictionary(_) => {
             unreachable!()
         }
+        ConcreteDataType::Interval(_) => Ok(SqlDataType::Interval),
     }
 }
 
@@ -471,6 +478,10 @@ mod tests {
         check_type(
             SqlDataType::Timestamp(None, TimezoneInfo::None),
             ConcreteDataType::timestamp_millisecond_datatype(),
+        );
+        check_type(
+            SqlDataType::Timestamp(None, TimezoneInfo::None),
+            ConcreteDataType::duration_millisecond_datatype(),
         );
         check_type(
             SqlDataType::Varbinary(None),
@@ -679,6 +690,11 @@ mod tests {
             &ConcreteDataType::timestamp_datatype(TimeUnit::Nanosecond),
         )
         .is_err());
+    }
+
+    #[test]
+    pub fn test_parse_duration_literal() {
+        unimplemented!()
     }
 
     #[test]

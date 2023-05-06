@@ -15,7 +15,7 @@
 use common_base::BitVec;
 use common_time::timestamp::TimeUnit;
 use datatypes::prelude::ConcreteDataType;
-use datatypes::types::TimestampType;
+use datatypes::types::{DurationType, TimestampType};
 use datatypes::value::Value;
 use datatypes::vectors::VectorRef;
 use greptime_proto::v1::ddl_request::Expr;
@@ -71,6 +71,10 @@ impl From<ColumnDataTypeWrapper> for ConcreteDataType {
             ColumnDataType::TimestampNanosecond => {
                 ConcreteDataType::timestamp_nanosecond_datatype()
             }
+            // ColumnDataType::DurationSecond => todo!(),
+            // ColumnDataType::DurationMillisecond => todo!(),
+            // ColumnDataType::DurationMicrosecond => todo!(),
+            // ColumnDataType::DurationNanosecond => todo!(),
         }
     }
 }
@@ -106,6 +110,13 @@ impl TryFrom<ConcreteDataType> for ColumnDataTypeWrapper {
             | ConcreteDataType::Dictionary(_) => {
                 return error::IntoColumnDataTypeSnafu { from: datatype }.fail()
             }
+            ConcreteDataType::Duration(unit) => match unit {
+                DurationType::Second(_) => ColumnDataType::TimestampSecond,
+                DurationType::Millisecond(_) => ColumnDataType::TimestampMillisecond,
+                DurationType::Microsecond(_) => ColumnDataType::TimestampMicrosecond,
+                DurationType::Nanosecond(_) => ColumnDataType::TimestampNanosecond,
+            },
+            ConcreteDataType::Interval(_) => todo!("Interval datatype not supported yet"),
         });
         Ok(datatype)
     }
@@ -189,6 +200,10 @@ pub fn values_with_capacity(datatype: ColumnDataType, capacity: usize) -> Values
             ts_nanosecond_values: Vec::with_capacity(capacity),
             ..Default::default()
         },
+        // ColumnDataType::DurationSecond => todo!(),
+        // ColumnDataType::DurationMillisecond => todo!(),
+        // ColumnDataType::DurationMicrosecond => todo!(),
+        // ColumnDataType::DurationNanosecond => todo!(),
     }
 }
 
@@ -224,6 +239,13 @@ pub fn push_vals(column: &mut Column, origin_count: usize, vector: VectorRef) {
             TimeUnit::Nanosecond => values.ts_nanosecond_values.push(val.value()),
         },
         Value::List(_) => unreachable!(),
+        Value::Duration(val) => match val.unit() {
+            TimeUnit::Second => values.ts_second_values.push(val.value()),
+            TimeUnit::Millisecond => values.ts_millisecond_values.push(val.value()),
+            TimeUnit::Microsecond => values.ts_microsecond_values.push(val.value()),
+            TimeUnit::Nanosecond => values.ts_nanosecond_values.push(val.value()),
+        },
+        Value::Interval(_) => todo!(),
     });
     column.null_mask = null_mask.into_vec();
 }
