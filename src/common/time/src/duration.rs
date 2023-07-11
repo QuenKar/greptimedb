@@ -75,20 +75,16 @@ impl Duration {
         (sec_div, nsec)
     }
 
-    /// Convert current Duration to different TimeUnit
-    fn convert_to(&self, unit: TimeUnit) -> Self {
-        let (sec, nsec) = self.split();
-        let value = match unit {
-            TimeUnit::Second => sec,
-            TimeUnit::Millisecond => {
-                sec * TimeUnit::Second.factor() as i64 + i64::from(nsec) / 1_000_000
-            }
-            TimeUnit::Microsecond => {
-                sec * TimeUnit::Second.factor() as i64 + i64::from(nsec) / 1_000
-            }
-            TimeUnit::Nanosecond => sec * TimeUnit::Second.factor() as i64 + i64::from(nsec),
-        };
-        Self::new(value, unit)
+    /// Convert current Duration to different TimeUnit with safety.
+    fn convert_to(&self, unit: TimeUnit) -> Option<Self> {
+        if self.unit().factor() >= unit.factor() {
+            let mul = self.unit().factor() / unit.factor();
+            let value = self.value.checked_mul(mul as i64)?;
+            Some(Duration::new(value, unit))
+        } else {
+            let mul = unit.factor() / self.unit().factor();
+            Some(Duration::new(self.value.div_euclid(mul as i64), unit))
+        }
     }
 }
 
@@ -165,10 +161,10 @@ impl From<i64> for Duration {
     }
 }
 
-// i64: Default TimeUnit is Millisecond.
+// return i64 value of Duration.
 impl From<Duration> for i64 {
     fn from(d: Duration) -> Self {
-        d.convert_to(TimeUnit::Millisecond).value
+        d.value
     }
 }
 

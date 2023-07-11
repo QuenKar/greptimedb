@@ -26,7 +26,7 @@ use snafu::{OptionExt, ResultExt};
 
 use super::{
     DurationMicrosecondVector, DurationMillisecondVector, DurationNanosecondVector,
-    DurationSecondVector,
+    DurationSecondVector, IntervalVector,
 };
 use crate::data_type::ConcreteDataType;
 use crate::error::{self, Result};
@@ -198,10 +198,12 @@ impl Helper {
                 // Timezone is unimplemented now.
                 ConstantVector::new(Arc::new(TimestampNanosecondVector::from(vec![v])), length)
             }
+            ScalarValue::IntervalMonthDayNano(v) => {
+                ConstantVector::new(Arc::new(IntervalVector::from(vec![v])), length)
+            }
             ScalarValue::Decimal128(_, _, _)
             | ScalarValue::IntervalYearMonth(_)
             | ScalarValue::IntervalDayTime(_)
-            | ScalarValue::IntervalMonthDayNano(_)
             | ScalarValue::Struct(_, _)
             | ScalarValue::Dictionary(_, _)
             | ScalarValue::Time32Second(_)
@@ -279,10 +281,16 @@ impl Helper {
                     DurationNanosecondVector::try_from_arrow_duration_array(array)?,
                 ),
             },
+            ArrowDataType::Interval(unit) => match unit {
+                arrow_schema::IntervalUnit::YearMonth => todo!(),
+                arrow_schema::IntervalUnit::DayTime => todo!(),
+                arrow_schema::IntervalUnit::MonthDayNano => {
+                    Arc::new(IntervalVector::try_from_arrow_array(array)?)
+                }
+            },
             ArrowDataType::Float16
             | ArrowDataType::Time32(_)
             | ArrowDataType::Time64(_)
-            | ArrowDataType::Interval(_)
             | ArrowDataType::LargeList(_)
             | ArrowDataType::FixedSizeList(_, _)
             | ArrowDataType::Struct(_)
