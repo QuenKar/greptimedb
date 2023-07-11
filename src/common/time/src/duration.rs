@@ -76,6 +76,7 @@ impl Duration {
     }
 
     /// Convert current Duration to different TimeUnit with safety.
+    #[allow(dead_code)]
     fn convert_to(&self, unit: TimeUnit) -> Option<Self> {
         if self.unit().factor() >= unit.factor() {
             let mul = self.unit().factor() / unit.factor();
