@@ -1,4 +1,5 @@
 use std::cmp::Ordering;
+use std::fmt::{Display, Formatter};
 use std::hash::{Hash, Hasher};
 use std::str::FromStr;
 
@@ -7,9 +8,7 @@ use serde::{Deserialize, Serialize};
 use crate::error::{Error, ParseDurationSnafu};
 use crate::timestamp::TimeUnit;
 
-// A Duration represents the elapsed time between two instants
-// as an int64 nanosecond count. The representation limits the
-// largest representable duration to approximately 290 years.
+/// Duration is a type that represents a time duration.
 #[derive(Debug, Clone, Default, Copy, Serialize, Deserialize)]
 pub struct Duration {
     value: i64,
@@ -200,6 +199,12 @@ impl Ord for Duration {
             Ordering::Greater => Ordering::Greater,
             Ordering::Equal => s_nsec.cmp(&o_nsec),
         }
+    }
+}
+
+impl Display for Duration {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}{}", self.value, self.unit.short_name())
     }
 }
 

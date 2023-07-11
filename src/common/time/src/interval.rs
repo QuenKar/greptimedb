@@ -52,6 +52,7 @@ pub const SECS_PER_DAY: i32 = SECS_PER_HOUR * HOURS_PER_DAY;
 pub const SECS_PER_WEEK: i32 = SECS_PER_DAY * DAYS_PER_WEEK;
 
 impl Interval {
+    // Creates a new interval.
     pub fn new(months: i32, days: i32, micros: i64) -> Self {
         Interval {
             months,
@@ -60,6 +61,7 @@ impl Interval {
         }
     }
 
+    // Creates a new interval from months, days and nanoseconds.
     pub fn from_month_day_nano(months: i32, days: i32, nsecs: i64) -> Self {
         Interval {
             months,
@@ -303,7 +305,7 @@ impl PartialEq for Interval {
 impl Eq for Interval {}
 
 impl Interval {
-    pub fn get_diff(t1: Timestamp, t2: Timestamp) -> Self {
+    pub fn get_diff(_t1: Timestamp, _t2: Timestamp) -> Self {
         todo!("get interval type from 2 timestamps")
     }
 }

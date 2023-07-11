@@ -35,7 +35,7 @@ use datatypes::vectors::{
     DurationMillisecondVector, DurationNanosecondVector, DurationSecondVector, Float32Vector,
     Float64Vector, Int32Vector, Int64Vector, PrimitiveVector, StringVector,
     TimestampMicrosecondVector, TimestampMillisecondVector, TimestampNanosecondVector,
-    TimestampSecondVector, UInt32Vector, UInt64Vector, IntervalVector,
+    TimestampSecondVector, UInt32Vector, UInt64Vector,
 };
 use snafu::{ensure, OptionExt, ResultExt};
 use table::metadata::TableId;
@@ -552,11 +552,14 @@ mod tests {
     use api::v1::{Column, ColumnDataType};
     use common_base::BitVec;
     use common_catalog::consts::MITO_ENGINE;
-    use common_time::Duration;
     use common_time::timestamp::Timestamp;
+    use common_time::Duration;
     use datatypes::data_type::ConcreteDataType;
     use datatypes::schema::{ColumnSchema, SchemaBuilder};
-    use datatypes::types::{TimestampMillisecondType, TimestampSecondType, TimestampType, DurationSecondType, DurationMillisecondType};
+    use datatypes::types::{
+        DurationMillisecondType, DurationSecondType, TimestampMillisecondType, TimestampSecondType,
+        TimestampType,
+    };
     use datatypes::value::Value;
     use paste::paste;
     use snafu::ResultExt;
@@ -925,7 +928,7 @@ mod tests {
     }
 
     #[test]
-    fn test_convert_duration_values(){
+    fn test_convert_duration_values() {
         // second
         let actual = convert_values(
             &ConcreteDataType::Duration(DurationType::Second(DurationSecondType)),

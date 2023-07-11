@@ -355,10 +355,15 @@ impl<'a> ScalarRef<'a> for ListValueRef<'a> {
 
 #[cfg(test)]
 mod tests {
+
     use super::*;
     use crate::data_type::ConcreteDataType;
+    use crate::duration::DurationMillisecond;
     use crate::timestamp::TimestampSecond;
-    use crate::vectors::{BinaryVector, Int32Vector, ListVectorBuilder, TimestampSecondVector};
+    use crate::vectors::{
+        BinaryVector, DurationMillisecondVector, Int32Vector, ListVectorBuilder,
+        TimestampSecondVector,
+    };
 
     fn build_vector_from_slice<T: ScalarVector>(items: &[Option<T::RefItem<'_>>]) -> T {
         let mut builder = T::Builder::with_capacity(items.len());
@@ -460,5 +465,30 @@ mod tests {
         let val = vector.get_data(0).unwrap();
         assert_eq!(val, val.as_scalar_ref());
         assert_eq!(TimestampSecond::from(10), val.to_owned_scalar());
+    }
+
+    #[test]
+    fn test_build_duration_vector() {
+        // default precision is Millisecond
+        let expect: Vec<Option<DurationMillisecond>> = vec![Some(10.into()), None, Some(42.into())];
+        let vector: DurationMillisecondVector = build_vector_from_slice(&expect);
+        assert_vector_eq(&expect, &vector);
+        let val = vector.get_data(0).unwrap();
+        assert_eq!(val, val.as_scalar_ref());
+        assert_eq!(DurationMillisecond::from(10), val.to_owned_scalar());
+    }
+
+    #[test]
+    fn test_build_interval_vector() {
+        let expect: Vec<Option<Interval>> = vec![
+            Some(Interval::new(1, 2, 1)),
+            None,
+            Some(Interval::new(3, 4, 1)),
+        ];
+        let vector: IntervalVector = build_vector_from_slice(&expect);
+        assert_vector_eq(&expect, &vector);
+        let val = vector.get_data(0).unwrap();
+        assert_eq!(val, val.as_scalar_ref());
+        assert_eq!(Interval::new(1, 2, 1), val.to_owned_scalar());
     }
 }

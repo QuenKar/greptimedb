@@ -116,7 +116,7 @@ impl TryFrom<ConcreteDataType> for ColumnDataTypeWrapper {
                 DurationType::Microsecond(_) => ColumnDataType::TimestampMicrosecond,
                 DurationType::Nanosecond(_) => ColumnDataType::TimestampNanosecond,
             },
-            ConcreteDataType::Interval(_) => todo!("Interval datatype not supported yet"),
+            ConcreteDataType::Interval(_) => todo!("ColumnDataType: Interval datatype not supported yet"),
         });
         Ok(datatype)
     }
