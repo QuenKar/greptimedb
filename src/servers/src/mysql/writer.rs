@@ -183,7 +183,7 @@ impl<'a, W: AsyncWrite + Unpin> MysqlResultWriter<'a, W> {
                     Value::Timestamp(v) => row_writer
                         .write_col(v.to_timezone_aware_string(query_context.time_zone()))?,
                     Value::Duration(v) => row_writer.write_col(v.to_string())?,
-                    Value::Interval(v) => row_writer.write_col(v.to_string())?,
+                    Value::Interval(v) => row_writer.write_col(v.to_iso_8601())?,
                     Value::List(_) => {
                         return Err(Error::Internal {
                             err_msg: format!(
@@ -240,6 +240,7 @@ pub(crate) fn create_mysql_column(
         ConcreteDataType::Timestamp(_) => Ok(ColumnType::MYSQL_TYPE_TIMESTAMP),
         ConcreteDataType::Date(_) => Ok(ColumnType::MYSQL_TYPE_DATE),
         ConcreteDataType::DateTime(_) => Ok(ColumnType::MYSQL_TYPE_DATETIME),
+        ConcreteDataType::Interval(_) => Ok(ColumnType::MYSQL_TYPE_VARCHAR),
         _ => error::InternalSnafu {
             err_msg: format!("not implemented for column datatype {:?}", data_type),
         }

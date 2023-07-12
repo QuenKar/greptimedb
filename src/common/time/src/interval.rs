@@ -194,8 +194,10 @@ impl Interval {
 impl FromStr for Interval {
     type Err = Error;
 
+    // E.g: INTERVAL '1 years 2 months 3 days 4 hours 5 minutes 6 seconds'
     fn from_str(_s: &str) -> Result<Self, Self::Err> {
-        todo!()
+        // parse str
+        todo!("Interval::from_str")
     }
 }
 

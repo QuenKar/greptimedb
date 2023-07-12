@@ -117,6 +117,7 @@ impl ConcreteDataType {
                 | ConcreteDataType::DateTime(_)
                 | ConcreteDataType::Timestamp(_)
                 | ConcreteDataType::Duration(_)
+                | ConcreteDataType::Interval(_)
         )
     }
 
@@ -131,6 +132,7 @@ impl ConcreteDataType {
                 | ConcreteDataType::DateTime(_)
                 | ConcreteDataType::Timestamp(_)
                 | ConcreteDataType::Duration(_)
+                | ConcreteDataType::Interval(_)
         )
     }
 
@@ -218,6 +220,7 @@ impl TryFrom<&ArrowDataType> for ConcreteDataType {
             ArrowDataType::Date64 => Self::datetime_datatype(),
             ArrowDataType::Timestamp(u, _) => ConcreteDataType::from_arrow_time_unit_timestamp(u),
             ArrowDataType::Duration(u) => ConcreteDataType::from_arrow_time_unit_duration(u),
+            ArrowDataType::Interval(_) => ConcreteDataType::interval_month_day_nano_datatype(),
             ArrowDataType::Binary | ArrowDataType::LargeBinary => Self::binary_datatype(),
             ArrowDataType::Utf8 | ArrowDataType::LargeUtf8 => Self::string_datatype(),
             ArrowDataType::List(field) => Self::List(ListType::new(
@@ -714,5 +717,12 @@ mod tests {
             ConcreteDataType::from_arrow_type(&ArrowDataType::Date32).to_string(),
             "Date"
         );
+        assert_eq!(
+            ConcreteDataType::from_arrow_type(&ArrowDataType::Interval(
+                arrow_schema::IntervalUnit::MonthDayNano,
+            ))
+            .to_string(),
+            "Interval"
+        )
     }
 }
