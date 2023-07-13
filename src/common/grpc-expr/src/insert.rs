@@ -23,7 +23,7 @@ use api::v1::{
 };
 use common_base::BitVec;
 use common_time::timestamp::Timestamp;
-use common_time::{Date, DateTime};
+use common_time::{Date, DateTime, Duration};
 use datatypes::data_type::{ConcreteDataType, DataType};
 use datatypes::prelude::{ValueRef, VectorRef};
 use datatypes::scalars::ScalarVector;
@@ -517,22 +517,22 @@ fn convert_values(data_type: &ConcreteDataType, values: Values) -> Vec<Value> {
         ConcreteDataType::Duration(DurationType::Second(_)) => values
             .ts_second_values
             .into_iter()
-            .map(|v| Value::Timestamp(Timestamp::new_second(v)))
+            .map(|v| Value::Duration(Duration::new_second(v)))
             .collect(),
         ConcreteDataType::Duration(DurationType::Millisecond(_)) => values
             .ts_millisecond_values
             .into_iter()
-            .map(|v| Value::Timestamp(Timestamp::new_millisecond(v)))
+            .map(|v| Value::Duration(Duration::new_millisecond(v)))
             .collect(),
         ConcreteDataType::Duration(DurationType::Microsecond(_)) => values
             .ts_microsecond_values
             .into_iter()
-            .map(|v| Value::Timestamp(Timestamp::new_microsecond(v)))
+            .map(|v| Value::Duration(Duration::new_microsecond(v)))
             .collect(),
         ConcreteDataType::Duration(DurationType::Nanosecond(_)) => values
             .ts_nanosecond_values
             .into_iter()
-            .map(|v| Value::Timestamp(Timestamp::new_nanosecond(v)))
+            .map(|v| Value::Duration(Duration::new_nanosecond(v)))
             .collect(),
         ConcreteDataType::Interval(_) => todo!(),
     }

@@ -1,5 +1,6 @@
 use std::cmp::Ordering;
 use std::fmt::{self, Display, Formatter};
+use std::hash::{Hash, Hasher};
 use std::ops::{Add, Neg, Sub};
 use std::str::FromStr;
 
@@ -306,6 +307,12 @@ impl PartialEq for Interval {
 
 impl Eq for Interval {}
 
+impl Hash for Interval {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.to_i128().hash(state);
+    }
+}
+
 impl Interval {
     pub fn get_diff(_t1: Timestamp, _t2: Timestamp) -> Self {
         todo!("get interval type from 2 timestamps")
@@ -381,7 +388,7 @@ mod tests {
 
     #[test]
     fn test_interval_mul_int() {
-        let interval = Interval::from_month_day_nano(1, 1, 1);
+        let interval = Interval::new(1, 1, 1);
         let interval2 = interval.checked_mul_int(2).unwrap();
         assert_eq!(interval2.months, 2);
         assert_eq!(interval2.days, 2);

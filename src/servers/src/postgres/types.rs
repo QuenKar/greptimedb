@@ -94,6 +94,8 @@ pub(super) fn encode_value(value: &Value, builder: &mut DataRowEncoder) -> PgWir
                 &value
             ),
         }))),
+        Value::Duration(_) => todo!(),
+        Value::Interval(_) => todo!(),
     }
 }
 
@@ -112,6 +114,8 @@ pub(super) fn type_gt_to_pg(origin: &ConcreteDataType) -> Result<Type> {
         &ConcreteDataType::Date(_) => Ok(Type::DATE),
         &ConcreteDataType::DateTime(_) => Ok(Type::TIMESTAMP),
         &ConcreteDataType::Timestamp(_) => Ok(Type::TIMESTAMP),
+        &ConcreteDataType::Interval(_) => todo!(),
+        &ConcreteDataType::Duration(_) => todo!(),
         &ConcreteDataType::List(_) | &ConcreteDataType::Dictionary(_) => error::InternalSnafu {
             err_msg: format!("not implemented for column datatype {origin:?}"),
         }
@@ -134,6 +138,7 @@ pub(super) fn type_pg_to_gt(origin: &Type) -> Result<ConcreteDataType> {
         )),
         &Type::DATE => Ok(ConcreteDataType::date_datatype()),
         &Type::TIME => Ok(ConcreteDataType::datetime_datatype()),
+        &Type::INTERVAL => todo!(),
         _ => error::InternalSnafu {
             err_msg: format!("unimplemented datatype {origin:?}"),
         }
