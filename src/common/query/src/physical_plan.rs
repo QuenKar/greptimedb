@@ -18,6 +18,7 @@ use std::sync::Arc;
 
 use common_recordbatch::adapter::{DfRecordBatchStreamAdapter, RecordBatchStreamAdapter};
 use common_recordbatch::{DfSendableRecordBatchStream, SendableRecordBatchStream};
+use common_telemetry::info;
 use datafusion::arrow::datatypes::SchemaRef as DfSchemaRef;
 use datafusion::error::Result as DfResult;
 pub use datafusion::execution::context::{SessionContext, TaskContext};
@@ -137,6 +138,7 @@ impl PhysicalPlan for PhysicalPlanAdapter {
         partition: usize,
         context: Arc<TaskContext>,
     ) -> Result<SendableRecordBatchStream> {
+        info!("Quenkar: Executing physical plan: {:?}", self);
         let baseline_metric = BaselineMetrics::new(&self.metric, partition);
 
         let df_plan = self.df_plan.clone();

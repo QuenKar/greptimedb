@@ -403,13 +403,14 @@ impl FrontendInstance for Instance {
 }
 
 fn parse_stmt(sql: &str, dialect: &(dyn Dialect + Send + Sync)) -> Result<Vec<Statement>> {
+    info!("Quenkar: Parsing SQL: {}", sql);
     ParserContext::create_with_dialect(sql, dialect).context(ParseSqlSnafu)
 }
 
 impl Instance {
     async fn query_statement(&self, stmt: Statement, query_ctx: QueryContextRef) -> Result<Output> {
         check_permission(self.plugins.clone(), &stmt, &query_ctx)?;
-
+        info!("Quenkar: query statement: {:?}", stmt);
         let stmt = QueryStatement::Sql(stmt);
         self.statement_executor
             .execute_stmt(stmt, query_ctx)
@@ -433,11 +434,12 @@ impl SqlQueryHandler for Instance {
 
         let checker_ref = self.plugins.get::<PermissionCheckerRef>();
         let checker = checker_ref.as_ref();
-
+        info!("Quenkar: Query: {}", query);
         match parse_stmt(query.as_ref(), query_ctx.sql_dialect())
             .and_then(|stmts| query_interceptor.post_parsing(stmts, query_ctx.clone()))
         {
             Ok(stmts) => {
+                info!("Quenkar: Statements: {:?}", stmts);
                 let mut results = Vec::with_capacity(stmts.len());
                 for stmt in stmts {
                     // TODO(sunng87): figure out at which stage we can call
@@ -474,6 +476,7 @@ impl SqlQueryHandler for Instance {
                         }
                     }
                 }
+                info!("Quenkar: Results: {:?}", results);
                 results
             }
             Err(e) => {

@@ -23,6 +23,7 @@ use chrono::{NaiveDate, NaiveDateTime};
 use common_catalog::parse_catalog_and_schema_from_db_string;
 use common_error::ext::ErrorExt;
 use common_query::Output;
+use common_telemetry::tracing::info;
 use common_telemetry::{error, logging, timer, warn};
 use datatypes::prelude::ConcreteDataType;
 use metrics::increment_counter;
@@ -321,6 +322,7 @@ impl<W: AsyncWrite + Send + Sync + Unpin> AsyncMysqlShim<W> for MysqlInstanceShi
         query: &'a str,
         writer: QueryResultWriter<'a, W>,
     ) -> Result<()> {
+        info!("mysql is on query: {:?}", query);
         let query_ctx = self.session.new_query_context();
         let _timer = timer!(
             crate::metrics::METRIC_MYSQL_QUERY_TIMER,

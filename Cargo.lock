@@ -1927,6 +1927,7 @@ dependencies = [
  "common-base",
  "common-error",
  "common-recordbatch",
+ "common-telemetry",
  "common-time",
  "datafusion",
  "datafusion-common",

@@ -32,6 +32,7 @@ use common_meta::key::{TableMetadataManager, TableMetadataManagerRef};
 use common_meta::kv_backend::KvBackendRef;
 use common_meta::table_name::TableName;
 use common_query::Output;
+use common_telemetry::tracing::log::info;
 use common_time::range::TimestampRange;
 use common_time::Timestamp;
 use partition::manager::{PartitionRuleManager, PartitionRuleManagerRef};
@@ -103,6 +104,7 @@ impl StatementExecutor {
     }
 
     pub async fn execute_sql(&self, stmt: Statement, query_ctx: QueryContextRef) -> Result<Output> {
+        info!("Quenkar: execute_sql statement: {:?}", stmt);
         match stmt {
             Statement::Query(_) | Statement::Explain(_) => {
                 self.plan_exec(QueryStatement::Sql(stmt), query_ctx).await
@@ -207,7 +209,9 @@ impl StatementExecutor {
     }
 
     async fn plan_exec(&self, stmt: QueryStatement, query_ctx: QueryContextRef) -> Result<Output> {
+        info!("Quenkar: plan_exec statement: {:?}", stmt);
         let plan = self.plan(stmt, query_ctx.clone()).await?;
+        info!("Quenkar: Logical plan: {:?}", plan);
         self.query_engine
             .execute(plan, query_ctx)
             .await

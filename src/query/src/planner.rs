@@ -17,6 +17,7 @@ use std::sync::Arc;
 use async_trait::async_trait;
 use catalog::table_source::DfTableSourceProvider;
 use common_error::ext::BoxedError;
+use common_telemetry::tracing::log::info;
 use datafusion::execution::context::SessionState;
 use datafusion_sql::planner::{ParserOptions, SqlToRel};
 use promql::planner::PromPlanner;
@@ -52,7 +53,9 @@ impl DfLogicalPlanner {
     }
 
     async fn plan_sql(&self, stmt: Statement, query_ctx: QueryContextRef) -> Result<LogicalPlan> {
+        info!("DfLogicalPlanner plan_sql statement: {:?}", stmt);
         let df_stmt = (&stmt).try_into().context(SqlSnafu)?;
+        info!("DfLogicalPlanner df_stmt: {:?}", df_stmt);
 
         let table_provider = DfTableSourceProvider::new(
             self.engine_state.catalog_manager().clone(),
@@ -84,9 +87,11 @@ impl DfLogicalPlanner {
             };
             PlanSqlSnafu { sql }
         })?;
+        info!("Quenkar: sql_to_rel result: {:?}", result);
         let plan = RangePlanRewriter::new(table_provider, context_provider)
             .rewrite(result)
             .await?;
+        info!("Quenkar: RangePlanRewriter plan: {:?}", plan);
         Ok(LogicalPlan::DfPlan(plan))
     }
 

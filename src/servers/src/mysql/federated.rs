@@ -21,6 +21,7 @@ use std::sync::Arc;
 
 use common_query::Output;
 use common_recordbatch::RecordBatches;
+use common_telemetry::tracing::info;
 use common_time::timezone::system_time_zone_name;
 use common_time::TimeZone;
 use datatypes::prelude::ConcreteDataType;
@@ -239,6 +240,7 @@ fn select_variable(query: &str, query_context: QueryContextRef) -> Option<Output
 }
 
 fn check_select_variable(query: &str, query_context: QueryContextRef) -> Option<Output> {
+    info!("Quenkar: check select variable: {}", query);
     if [&SELECT_VAR_PATTERN, &MYSQL_CONN_JAVA_PATTERN]
         .iter()
         .any(|r| r.is_match(query))

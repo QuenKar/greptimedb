@@ -9,6 +9,7 @@ api = { workspace = true }
 async-trait.workspace = true
 common-error = { workspace = true }
 common-recordbatch = { workspace = true }
+common-telemetry.workspace = true
 common-time = { workspace = true }
 datafusion-common.workspace = true
 datafusion-expr.workspace = true

@@ -35,6 +35,7 @@ use common_recordbatch::{
     EmptyRecordBatchStream, RecordBatch, RecordBatches, SendableRecordBatchStream,
 };
 use common_telemetry::timer;
+use common_telemetry::tracing::log::info;
 use datafusion::common::Column;
 use datafusion::physical_plan::coalesce_partitions::CoalescePartitionsExec;
 use datafusion::physical_plan::ExecutionPlan;
@@ -82,12 +83,13 @@ impl DatafusionQueryEngine {
         plan: LogicalPlan,
         query_ctx: QueryContextRef,
     ) -> Result<Output> {
+        info!("Quenkar: Executing query plan");
         let mut ctx = QueryEngineContext::new(self.state.session_state(), query_ctx.clone());
 
         // `create_physical_plan` will optimize logical plan internally
         let physical_plan = self.create_physical_plan(&mut ctx, &plan).await?;
         let physical_plan = self.optimize_physical_plan(&mut ctx, physical_plan)?;
-
+        info!("Quenkar: optimized Physical plan : {:?}", physical_plan);
         let physical_plan = if let Some(wrapper) = self.plugins.get::<PhysicalPlanWrapperRef>() {
             wrapper.wrap(physical_plan, query_ctx)
         } else {
@@ -117,6 +119,7 @@ impl DatafusionQueryEngine {
         let output = self
             .exec_query_plan(LogicalPlan::DfPlan((*dml.input).clone()), query_ctx)
             .await?;
+        info!("Quenkar: Output{:?}", output);
         let mut stream = match output {
             Output::RecordBatches(batches) => batches.as_stream(),
             Output::Stream(stream) => stream,
@@ -368,6 +371,7 @@ impl QueryExecutor for DatafusionQueryEngine {
         ctx: &QueryEngineContext,
         plan: &Arc<dyn PhysicalPlan>,
     ) -> Result<SendableRecordBatchStream> {
+        info!("execute_stream with physical plan");
         let _timer = timer!(metrics::METRIC_EXEC_PLAN_ELAPSED);
         let task_ctx = ctx.build_task_ctx();
 
