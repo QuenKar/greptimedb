@@ -95,7 +95,7 @@ impl DatafusionQueryEngine {
         } else {
             physical_plan
         };
-
+        info!("Quenkar: returning output");
         Ok(Output::Stream(self.execute_stream(&ctx, &physical_plan)?))
     }
 
@@ -241,6 +241,7 @@ impl QueryEngine for DatafusionQueryEngine {
     }
 
     async fn execute(&self, plan: LogicalPlan, query_ctx: QueryContextRef) -> Result<Output> {
+        info!("Quenkar: execute in DatafusionQueryEngine");
         match plan {
             LogicalPlan::DfPlan(DfLogicalPlan::Dml(dml)) => {
                 self.exec_dml_statement(dml, query_ctx).await
@@ -321,7 +322,7 @@ impl PhysicalPlanner for DatafusionQueryEngine {
                     })
                     .map_err(BoxedError::new)
                     .context(QueryExecutionSnafu)?;
-
+                info!("Quenkar: create_physical_plan : {:?}", physical_plan);
                 Ok(Arc::new(PhysicalPlanAdapter::new(
                     Arc::new(
                         physical_plan
@@ -371,7 +372,7 @@ impl QueryExecutor for DatafusionQueryEngine {
         ctx: &QueryEngineContext,
         plan: &Arc<dyn PhysicalPlan>,
     ) -> Result<SendableRecordBatchStream> {
-        info!("execute_stream with physical plan");
+        info!("Quenkar: execute_stream with physical plan and return SendableRecordBatchStream");
         let _timer = timer!(metrics::METRIC_EXEC_PLAN_ELAPSED);
         let task_ctx = ctx.build_task_ctx();
 
