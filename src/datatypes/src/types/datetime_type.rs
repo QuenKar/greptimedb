@@ -56,6 +56,8 @@ impl DataType for DateTimeType {
 
     fn try_cast(&self, from: Value) -> Option<Value> {
         match from {
+            Value::DateTime(v) => Some(Value::DateTime(v)),
+            Value::Date(v) => Some(Value::DateTime(DateTime::from(v))),
             Value::Int64(v) => Some(Value::DateTime(DateTime::from(v))),
             Value::Timestamp(v) => v.to_chrono_datetime().map(|d| Value::DateTime(d.into())),
             Value::String(v) => DateTime::from_str(v.as_utf8()).map(Value::DateTime).ok(),
@@ -105,7 +107,7 @@ impl LogicalPrimitiveType for DateTimeType {
 #[cfg(test)]
 mod tests {
 
-    use common_time::Timestamp;
+    use common_time::{Date, Timestamp};
 
     use super::*;
 
@@ -126,11 +128,19 @@ mod tests {
         );
 
         // cast from Timestamp
-        let val = Value::Timestamp(Timestamp::from_str("2020-09-08 21:42:29.042+0800").unwrap());
+        let val = Value::Timestamp(Timestamp::from_str("2020-09-08 21:42:29+0800").unwrap());
         let dt = ConcreteDataType::datetime_datatype().try_cast(val).unwrap();
         assert_eq!(
             dt,
-            Value::DateTime(DateTime::from_str("2020-09-08 21:42:29+0800").unwrap())
+            Value::DateTime(DateTime::from_str("2020-09-08 21:42:29").unwrap())
+        );
+
+        // cast from Date
+        let val = Value::Date(Date::from_str("2020-09-08").unwrap());
+        let dt = ConcreteDataType::datetime_datatype().try_cast(val).unwrap();
+        assert_eq!(
+            dt,
+            Value::DateTime(DateTime::from_str("2020-09-08 08:00:00+0800").unwrap())
         );
     }
 }

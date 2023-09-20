@@ -14,7 +14,7 @@
 
 use crate::data_type::{ConcreteDataType, DataType};
 use crate::error::{self, Error, Result};
-use crate::types::TimeType;
+use crate::types::{IntervalType, TimeType};
 use crate::value::Value;
 
 /// Cast options for cast functions.
@@ -47,24 +47,25 @@ pub fn cast_with_opt(
     dest_type: &ConcreteDataType,
     cast_option: &CastOption,
 ) -> Result<Value> {
+    if matches!(src_value, Value::Null) {
+        return Ok(Value::Null);
+    }
     if !can_cast_type(&src_value, dest_type) {
         if cast_option.strict {
             return Err(invalid_type_cast(&src_value, dest_type));
-        } else {
-            return Ok(Value::Null);
         }
+        return Ok(Value::Null);
     }
-    let new_value = dest_type.try_cast(src_value.clone());
-    match new_value {
-        Some(v) => Ok(v),
-        None => {
-            if cast_option.strict && !src_value.is_null() {
+    dest_type.try_cast(src_value.clone()).map_or_else(
+        || {
+            if cast_option.strict {
                 Err(invalid_type_cast(&src_value, dest_type))
             } else {
                 Ok(Value::Null)
             }
-        }
-    }
+        },
+        Ok,
+    )
 }
 
 /// Return true if the src_value can be casted to dest_type,
@@ -73,6 +74,7 @@ pub fn cast_with_opt(
 /// it only checks whether the src_value can be casted to dest_type.
 pub fn can_cast_type(src_value: &Value, dest_type: &ConcreteDataType) -> bool {
     use ConcreteDataType::*;
+    use IntervalType::*;
     use TimeType::*;
     let src_type = &src_value.data_type();
 
@@ -102,11 +104,13 @@ pub fn can_cast_type(src_value: &Value, dest_type: &ConcreteDataType) -> bool {
         // temporal types cast
         // Date type
         (Date(_), Int32(_) | Timestamp(_) | String(_)) => true,
-        (Int32(_) | String(_) | Timestamp(_), Date(_)) => true,
+        (Int32(_) | Int64(_) | String(_) | Timestamp(_), Date(_)) => true,
+        (Date(_), DateTime(_)) => true,
         (Date(_), Date(_)) => true,
         // DateTime type
         (DateTime(_), Int64(_) | Timestamp(_) | String(_)) => true,
         (Int64(_) | Timestamp(_) | String(_), DateTime(_)) => true,
+        (DateTime(_), Date(_)) => true,
         (DateTime(_), DateTime(_)) => true,
         // Timestamp type
         (Timestamp(_), Int64(_) | String(_)) => true,
@@ -116,12 +120,27 @@ pub fn can_cast_type(src_value: &Value, dest_type: &ConcreteDataType) -> bool {
         (Time(_), String(_)) => true,
         (Time(Second(_)), Int32(_)) => true,
         (Time(Millisecond(_)), Int32(_)) => true,
+        (Int32(_), Time(Second(_))) => true,
+        (Int32(_), Time(Millisecond(_))) => true,
         (Time(Microsecond(_)), Int64(_)) => true,
         (Time(Nanosecond(_)), Int64(_)) => true,
+        (Int64(_), Time(Microsecond(_))) => true,
+        (Int64(_), Time(Nanosecond(_))) => true,
         (Time(_), Time(_)) => true,
-        // TODO(QuenKar): interval type cast
-        (Interval(_), String(_)) => true,
+        // interval and duration type cast
+        (Duration(_), Int64(_)) => true,
+        (Int64(_), Duration(_)) => true,
         (Duration(_), String(_)) => true,
+        (Duration(_), Interval(MonthDayNano(_))) => true,
+        (Interval(MonthDayNano(_)), Duration(_)) => true,
+
+        (Int32(_), Interval(YearMonth(_))) => true,
+        (Int64(_), Interval(DayTime(_))) => true,
+        (Interval(YearMonth(_)), Int32(_)) => true,
+        (Interval(YearMonth(_)) | Interval(DayTime(_)), Int64(_)) => true,
+        (Interval(YearMonth(_)), Interval(MonthDayNano(_))) => true,
+        (Interval(DayTime(_)), Interval(MonthDayNano(_))) => true,
+
         // other situations return false
         (_, _) => false,
     }
@@ -158,10 +177,11 @@ fn invalid_type_cast(src_value: &Value, dest_type: &ConcreteDataType) -> Error {
 #[cfg(test)]
 mod tests {
     use std::str::FromStr;
+    use std::time::Duration;
 
     use common_base::bytes::StringBytes;
     use common_time::time::Time;
-    use common_time::{Date, DateTime, Timestamp};
+    use common_time::{Date, DateTime, Interval, Timestamp};
     use ordered_float::OrderedFloat;
 
     use super::*;
@@ -199,6 +219,12 @@ mod tests {
     #[test]
     fn test_cast_with_opt() {
         std::env::set_var("TZ", "Asia/Shanghai");
+        // null value cast
+        let src_value = Value::Null;
+        let dest_type = ConcreteDataType::int64_datatype();
+        let res = cast_with_opt(src_value, &dest_type, &CastOption { strict: false });
+        assert_eq!(res.unwrap(), Value::Null);
+
         // non-strict mode
         let cast_option = CastOption { strict: false };
         let src_value = Value::Int8(-1);
@@ -254,7 +280,7 @@ mod tests {
             Value::String(StringBytes::from("10"))
         );
 
-        // string -> other types
+        // string cast
         test_can_cast!(
             Value::String(StringBytes::from("0")),
             null_datatype,
@@ -265,25 +291,27 @@ mod tests {
             binary_datatype
         );
 
-        // date -> other types
+        // date cast
         test_can_cast!(
             Value::Date(Date::from_str("2021-01-01").unwrap()),
             null_datatype,
             int32_datatype,
             timestamp_second_datatype,
+            datetime_datatype,
             string_datatype
         );
 
-        // datetime -> other types
+        // datetime cast
         test_can_cast!(
             Value::DateTime(DateTime::from_str("2021-01-01 00:00:00").unwrap()),
             null_datatype,
             int64_datatype,
+            date_datatype,
             timestamp_second_datatype,
             string_datatype
         );
 
-        // timestamp -> other types
+        // timestamp cast
         test_can_cast!(
             Value::Timestamp(Timestamp::from_str("2021-01-01 00:00:00").unwrap()),
             null_datatype,
@@ -293,11 +321,45 @@ mod tests {
             string_datatype
         );
 
-        // time -> other types
+        // time cast
         test_can_cast!(
             Value::Time(Time::new_second(0)),
             null_datatype,
             string_datatype
+        );
+
+        // duration cast
+        test_can_cast!(
+            Value::Duration(Duration::from_secs(0).into()),
+            null_datatype,
+            int64_datatype,
+            string_datatype,
+            interval_month_day_nano_datatype
+        );
+
+        // interval cast
+        // IntervalYearMonth
+        test_can_cast!(
+            Value::Interval(Interval::from_year_month(0)),
+            null_datatype,
+            int32_datatype,
+            int64_datatype,
+            interval_month_day_nano_datatype
+        );
+
+        // IntervalDayTime
+        test_can_cast!(
+            Value::Interval(Interval::from_day_time(1, 2)),
+            null_datatype,
+            int64_datatype,
+            interval_month_day_nano_datatype
+        );
+
+        // IntervalMonthDayNano
+        test_can_cast!(
+            Value::Interval(Interval::from_month_day_nano(1, 2, 3)),
+            null_datatype,
+            duration_second_datatype
         );
     }
 }

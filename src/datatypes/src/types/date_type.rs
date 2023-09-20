@@ -58,10 +58,14 @@ impl DataType for DateType {
 
     fn try_cast(&self, from: Value) -> Option<Value> {
         match from {
+            Value::Date(v) => Some(Value::Date(v)),
             Value::Int32(v) => Some(Value::Date(Date::from(v))),
+            Value::Int64(v) => num::cast::cast(v).map(|v: i32| Value::Date(Date::from(v))),
+            Value::DateTime(v) => v
+                .to_chrono_datetime()
+                .map(|v| Value::Date(Date::from(v.date()))),
             Value::String(v) => Date::from_str(v.as_utf8()).map(Value::Date).ok(),
             Value::Timestamp(v) => v.to_chrono_date().map(|date| Value::Date(date.into())),
-            Value::DateTime(v) => Some(Value::DateTime(v)),
             _ => None,
         }
     }
@@ -105,7 +109,7 @@ impl LogicalPrimitiveType for DateType {
 #[cfg(test)]
 mod tests {
     use common_base::bytes::StringBytes;
-    use common_time::Timestamp;
+    use common_time::{DateTime, Timestamp};
 
     use super::*;
 
@@ -130,6 +134,16 @@ mod tests {
         let val = Value::Int32(19614);
         let date = ConcreteDataType::date_datatype().try_cast(val).unwrap();
         assert_eq!(date, Value::Date(Date::from_str("2023-09-14").unwrap()));
+
+        // Int64 -> date
+        let val = Value::Int64(0);
+        let date = ConcreteDataType::date_datatype().try_cast(val).unwrap();
+        assert_eq!(date, Value::Date(Date::from_str("1970-01-01").unwrap()));
+
+        // datetime -> date
+        let val = Value::DateTime(DateTime::from_str("1970-01-01 08:00:00+0800").unwrap());
+        let date = ConcreteDataType::date_datatype().try_cast(val).unwrap();
+        assert_eq!(date, Value::Date(Date::from_str("1970-01-01").unwrap()));
 
         // String -> date
         let s = Value::String(StringBytes::from("1970-02-12"));
