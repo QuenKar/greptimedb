@@ -38,7 +38,6 @@ use common_query::AddColumnLocation;
 use common_time::Timestamp;
 use datatypes::prelude::ConcreteDataType;
 use datatypes::schema::{ColumnDefaultConstraint, ColumnSchema, COMMENT_KEY};
-use datatypes::types::cast::CastOption;
 use datatypes::types::{cast, TimestampType};
 use datatypes::value::{OrderedF32, OrderedF64, Value};
 pub use option_map::OptionMap;
@@ -222,11 +221,9 @@ pub fn sql_value_to_value(
         }
     };
     if value.data_type() != *data_type {
-        cast::cast_with_opt(value, data_type, &CastOption { strict: true }).with_context(|_| {
-            InvalidCastSnafu {
-                sql_value: sql_val.clone(),
-                datatype: data_type,
-            }
+        cast::cast(value, data_type).with_context(|_| InvalidCastSnafu {
+            sql_value: sql_val.clone(),
+            datatype: data_type,
         })
     } else {
         Ok(value)

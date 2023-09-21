@@ -16,6 +16,19 @@ use crate::data_type::{ConcreteDataType, DataType};
 use crate::error::{self, Error, Result};
 use crate::types::{IntervalType, TimeType};
 use crate::value::Value;
+use crate::vectors::Helper;
+
+pub fn cast(src_value: Value, dest_type: &ConcreteDataType) -> Result<Value> {
+    if src_value == Value::Null {
+        return Ok(Value::Null);
+    }
+    let src_type = src_value.data_type();
+    let scalar_value = src_value.try_to_scalar_value(&src_type)?;
+    let new_value = Helper::try_from_scalar_value(scalar_value, 1)?
+        .cast(dest_type)?
+        .get(0);
+    Ok(new_value)
+}
 
 /// Cast options for cast functions.
 #[derive(Debug, Default, Clone, PartialEq, Eq, Hash)]
@@ -177,11 +190,10 @@ fn invalid_type_cast(src_value: &Value, dest_type: &ConcreteDataType) -> Error {
 #[cfg(test)]
 mod tests {
     use std::str::FromStr;
-    use std::time::Duration;
 
     use common_base::bytes::StringBytes;
     use common_time::time::Time;
-    use common_time::{Date, DateTime, Interval, Timestamp};
+    use common_time::{Date, DateTime, Duration, Interval, Timestamp};
     use ordered_float::OrderedFloat;
 
     use super::*;
@@ -330,7 +342,7 @@ mod tests {
 
         // duration cast
         test_can_cast!(
-            Value::Duration(Duration::from_secs(0).into()),
+            Value::Duration(Duration::new_second(0)),
             null_datatype,
             int64_datatype,
             string_datatype,
@@ -361,5 +373,14 @@ mod tests {
             null_datatype,
             duration_second_datatype
         );
+    }
+
+    #[test]
+    fn test_cast_null_to_other_type() {
+        let src_value = Value::Null;
+        let dest_type = ConcreteDataType::uint8_datatype();
+        let expected_result = Value::Null;
+        let actual_result = cast(src_value, &dest_type).unwrap();
+        assert_eq!(actual_result, expected_result);
     }
 }
