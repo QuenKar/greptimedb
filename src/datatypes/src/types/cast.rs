@@ -18,6 +18,8 @@ use crate::types::{IntervalType, TimeType};
 use crate::value::Value;
 use crate::vectors::Helper;
 
+// TODO(QuenKar): this cast function behavior is the same as Vector cast,
+// after implementing the cast_with_opt function completely, I will remove this function.
 pub fn cast(src_value: Value, dest_type: &ConcreteDataType) -> Result<Value> {
     if src_value == Value::Null {
         return Ok(Value::Null);
