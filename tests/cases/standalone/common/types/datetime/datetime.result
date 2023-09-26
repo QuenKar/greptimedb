@@ -8,9 +8,11 @@ Affected Rows: 0
 
 INSERT INTO datetimes VALUES
 ('host1', '2019-01-01 00:00:00', 1000),
-('host2', '2023-01-01 00:00:00', 2000);
+('host2', '2023-01-01 00:00:00', 2000),
+('host3', '2023-01-02 00:00:00', 3000),
+('host4', '2023-01-03 00:00:00', 4000);
 
-Affected Rows: 2
+Affected Rows: 4
 
 SELECT * FROM datetimes;
 
@@ -19,7 +21,13 @@ SELECT * FROM datetimes;
 +-------+---------------------+---------------------+
 | host1 | 2019-01-01T00:00:00 | 1970-01-01T00:00:01 |
 | host2 | 2023-01-01T00:00:00 | 1970-01-01T00:00:02 |
+| host3 | 2023-01-02T00:00:00 | 1970-01-01T00:00:03 |
+| host4 | 2023-01-03T00:00:00 | 1970-01-01T00:00:04 |
 +-------+---------------------+---------------------+
+
+SELECT * FROM datetimes WHERE event_date > '2020-01-01 00:00:00'::DateTime;
+
+Error: 3000(PlanQuery), This feature is not implemented: Unsupported SQL type Datetime(None)
 
 DROP TABLE datetimes;
 
