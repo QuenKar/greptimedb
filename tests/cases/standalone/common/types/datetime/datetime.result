@@ -1,0 +1,27 @@
+CREATE TABLE datetimes(
+    host String,
+    event_date DateTime,
+    ts Timestamp time index
+);
+
+Affected Rows: 0
+
+INSERT INTO datetimes VALUES
+('host1', '2019-01-01 00:00:00', 1000),
+('host2', '2023-01-01 00:00:00', 2000);
+
+Affected Rows: 2
+
+SELECT * FROM datetimes;
+
++-------+---------------------+---------------------+
+| host  | event_date          | ts                  |
++-------+---------------------+---------------------+
+| host1 | 2019-01-01T00:00:00 | 1970-01-01T00:00:01 |
+| host2 | 2023-01-01T00:00:00 | 1970-01-01T00:00:02 |
++-------+---------------------+---------------------+
+
+DROP TABLE datetimes;
+
+Affected Rows: 1
+

@@ -16,6 +16,23 @@ use crate::data_type::{ConcreteDataType, DataType};
 use crate::error::{self, Error, Result};
 use crate::types::TimeType;
 use crate::value::Value;
+use crate::vectors::Helper;
+
+// TODO(QuenKar): This cast function behavior is the same as Vector cast.
+// After fully implementing the cast_with_opt function, I will remove this function.
+pub fn cast(src_value: Value, dest_type: &ConcreteDataType) -> Result<Value> {
+    match src_value {
+        Value::Null => Ok(Value::Null),
+        _ => {
+            let src_type = src_value.data_type();
+            let scalar_value = src_value.try_to_scalar_value(&src_type)?;
+            let new_value = Helper::try_from_scalar_value(scalar_value, 1)?
+                .cast(dest_type)?
+                .get(0);
+            Ok(new_value)
+        }
+    }
+}
 
 /// Cast options for cast functions.
 #[derive(Debug, Default, Clone, PartialEq, Eq, Hash)]
@@ -194,6 +211,17 @@ mod tests {
                 );
             )*
         };
+    }
+
+    // Most cases have been tested in arrow-cast: https://github.com/apache/arrow-rs/blob/59016e53e5cfa1d368009ed640d1f3dce326e7bb/arrow-cast/src/cast.rs#L3349-L7584
+    // and https://github.com/GreptimeTeam/greptimedb/blob/0bf26642a460880cba74c093a549790fa0527347/src/datatypes/src/vectors/operations/cast.rs#L34
+    // So here just give a simple use case.
+    #[test]
+    fn test_cast() {
+        // simple example
+        let old_value = Value::Int32(100);
+        let new_value = cast(old_value.clone(), &ConcreteDataType::int64_datatype()).unwrap();
+        assert_eq!(new_value, Value::Int64(100));
     }
 
     #[test]
