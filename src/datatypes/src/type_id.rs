@@ -38,8 +38,7 @@ pub enum LogicalTypeId {
     /// Date representing the elapsed time since UNIX epoch (1970-01-01)
     /// in days (32 bits).
     Date,
-    /// Datetime representing the elapsed time since UNIX epoch (1970-01-01) in
-    /// seconds/milliseconds/microseconds/nanoseconds, determined by precision.
+    /// Datetime representing the elapsed milliseconds since UNIX epoch (1970-01-01)
     DateTime,
 
     TimestampSecond,
