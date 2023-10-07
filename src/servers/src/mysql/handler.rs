@@ -25,6 +25,7 @@ use common_error::ext::ErrorExt;
 use common_query::Output;
 use common_telemetry::tracing::info;
 use common_telemetry::{error, logging, timer, warn};
+use common_time::TimeZone;
 use datatypes::prelude::ConcreteDataType;
 use metrics::increment_counter;
 use opensrv_mysql::{
@@ -324,6 +325,8 @@ impl<W: AsyncWrite + Send + Sync + Unpin> AsyncMysqlShim<W> for MysqlInstanceShi
     ) -> Result<()> {
         info!("mysql is on query: {:?}", query);
         let query_ctx = self.session.new_query_context();
+        query_ctx.set_time_zone(TimeZone::from_tz_string("Asia/Shanghai").unwrap());
+        info!("query_ctx: {:?}", query_ctx);
         let _timer = timer!(
             crate::metrics::METRIC_MYSQL_QUERY_TIMER,
             &[

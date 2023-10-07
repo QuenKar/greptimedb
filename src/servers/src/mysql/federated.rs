@@ -266,6 +266,7 @@ fn check_show_variables(query: &str) -> Option<Output> {
 
 // TODO(sunng87): extract this to use sqlparser for more variables
 fn check_set_variables(query: &str, query_ctx: QueryContextRef) -> Option<Output> {
+    info!("Quenkar: check set variable: {}", query);
     if let Some(captures) = SET_TIME_ZONE_PATTERN.captures(query) {
         // get the capture
         let tz = captures.get(1).unwrap();
