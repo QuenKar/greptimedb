@@ -1,0 +1,64 @@
+-- https://github.com/duckdb/duckdb/blob/main/test/sql/types/date/test_incorrect_dates.test
+CREATE TABLE dates(i DATE, ts TIMESTAMP TIME INDEX);
+
+Affected Rows: 0
+
+INSERT INTO dates VALUES ('blabla', 1000);
+
+Error: 2000(InvalidSyntax), Failed to parse value: Failed to parse blabla to Date value
+
+-- month out of range
+INSERT INTO dates VALUES ('1993-20-14', 1000);
+
+Error: 2000(InvalidSyntax), Failed to parse value: Failed to parse 1993-20-14 to Date value
+
+-- day out of range
+INSERT INTO dates VALUES ('1993-08-99', 1000);
+
+Error: 2000(InvalidSyntax), Failed to parse value: Failed to parse 1993-08-99 to Date value
+
+-- day out of range because not a leapyear
+INSERT INTO dates VALUES ('1993-02-29', 1000);
+
+Error: 2000(InvalidSyntax), Failed to parse value: Failed to parse 1993-02-29 to Date value
+
+-- day out of range because not a leapyear
+INSERT INTO dates VALUES ('1900-02-29', 1000);
+
+Error: 2000(InvalidSyntax), Failed to parse value: Failed to parse 1900-02-29 to Date value
+
+-- day in range because of leapyear
+INSERT INTO dates VALUES ('1992-02-29', 2000);
+
+Affected Rows: 1
+
+-- day in range because of leapyear
+INSERT INTO dates VALUES ('2000-02-29', 3000);
+
+Affected Rows: 1
+
+-- test incorrect date formats
+-- dd-mm-YYYY
+INSERT INTO dates VALUES ('02-02-1992', 1000);
+
+Error: 2000(InvalidSyntax), Failed to parse value: Failed to parse 02-02-1992 to Date value
+
+-- different separators are not supported
+INSERT INTO dates VALUES ('1900a01a01', 1000);
+
+Error: 2000(InvalidSyntax), Failed to parse value: Failed to parse 1900a01a01 to Date value
+
+-- this should work though
+INSERT INTO dates VALUES ('1900-1-1', 4000);
+
+Affected Rows: 1
+
+-- out of range dates
+INSERT INTO dates VALUES ('-100000000-01-01', 1000);
+
+Error: 2000(InvalidSyntax), Failed to parse value: Failed to parse -100000000-01-01 to Date value
+
+INSERT INTO dates VALUES ('1000000000-01-01', 1000);
+
+Error: 2000(InvalidSyntax), Failed to parse value: Failed to parse 1000000000-01-01 to Date value
+

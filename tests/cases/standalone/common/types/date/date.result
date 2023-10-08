@@ -1,0 +1,92 @@
+-- https://github.com/duckdb/duckdb/blob/main/test/sql/types/date/test_date.test
+CREATE TABLE dates(i DATE ,ts TIMESTAMP TIME INDEX);
+
+Affected Rows: 0
+
+INSERT INTO dates VALUES ('1993-08-14', 1000), (NULL, 2000);
+
+Affected Rows: 2
+
+SELECT * FROM dates;
+
++------------+---------------------+
+| i          | ts                  |
++------------+---------------------+
+| 1993-08-14 | 1970-01-01T00:00:01 |
+|            | 1970-01-01T00:00:02 |
++------------+---------------------+
+
+SELECT year(i) FROM dates;
+
+Error: 3000(PlanQuery), Error during planning: Invalid function 'year'.
+Did you mean 'atan'?
+
+SELECT cast(i AS VARCHAR) FROM dates;
+
++------------+
+| dates.i    |
++------------+
+| 1993-08-14 |
+|            |
++------------+
+
+ 
+SELECT i + 5 FROM dates;
+
+Error: 3000(PlanQuery), Error during planning: Cannot coerce arithmetic expression Date32 + Int64 to valid types
+
+SELECT i - 5 FROM dates;
+
+Error: 3000(PlanQuery), Error during planning: Cannot coerce arithmetic expression Date32 - Int64 to valid types
+
+-- HOWEVER, we can't divide or multiply or modulo
+SELECT i * 3 FROM dates;
+
+Error: 3000(PlanQuery), Error during planning: Cannot coerce arithmetic expression Date32 * Int64 to valid types
+
+SELECT i / 3 FROM dates;
+
+Error: 3000(PlanQuery), Error during planning: Cannot coerce arithmetic expression Date32 / Int64 to valid types
+
+SELECT i % 3 FROM dates;
+
+Error: 3000(PlanQuery), Error during planning: Cannot coerce arithmetic expression Date32 % Int64 to valid types
+
+-- we also can't add two dates together
+SELECT i + i FROM dates;
+
+Error: 1003(Internal), Cast error: Cannot perform arithmetic operation between array of type Date32 and array of type Date32
+
+-- but we can subtract them! resulting in an integer
+SELECT (i + 5) - i FROM dates;
+
+Error: 3000(PlanQuery), Error during planning: Cannot coerce arithmetic expression Date32 + Int64 to valid types
+
+SELECT ''::DATE;
+
+Error: 3001(EngineExecuteQuery), Cast error: Cannot cast string '' to value of Date32 type
+
+SELECT '  '::DATE;
+
+Error: 3001(EngineExecuteQuery), Cast error: Cannot cast string '  ' to value of Date32 type
+
+SELECT '1992'::DATE;
+
+Error: 3001(EngineExecuteQuery), Cast error: Cannot cast string '1992' to value of Date32 type
+
+SELECT '1992-'::DATE;
+
+Error: 3001(EngineExecuteQuery), Cast error: Cannot cast string '1992-' to value of Date32 type
+
+SELECT '1992-01'::DATE;
+
+Error: 3001(EngineExecuteQuery), Cast error: Cannot cast string '1992-01' to value of Date32 type
+
+SELECT '1992-01-'::DATE;
+
+Error: 3001(EngineExecuteQuery), Cast error: Cannot cast string '1992-01-' to value of Date32 type
+
+SELECT '30000307-01-01 (BC)'::DATE;
+
+Error: 3001(EngineExecuteQuery), Cast error: Cannot cast string '30000307-01-01 (BC)' to value of Date32 type
+
