@@ -43,6 +43,7 @@ use datatypes::types::{cast, TimestampType};
 use datatypes::value::{OrderedF32, OrderedF64, Value};
 pub use option_map::OptionMap;
 use snafu::{ensure, OptionExt, ResultExt};
+use sqlparser::ast::ExactNumberInfo;
 pub use transform::{get_data_type_by_alias_name, transform_statements};
 
 use crate::ast::{
@@ -437,6 +438,9 @@ pub fn concrete_data_type_to_sql_data_type(data_type: &ConcreteDataType) -> Resu
         )),
         ConcreteDataType::Interval(_) => Ok(SqlDataType::Interval),
         ConcreteDataType::Binary(_) => Ok(SqlDataType::Varbinary(None)),
+        ConcreteDataType::Decimal128(d) => Ok(SqlDataType::Decimal(
+            ExactNumberInfo::PrecisionAndScale(d.precision() as u64, d.scale() as u64),
+        )),
         ConcreteDataType::Duration(_)
         | ConcreteDataType::Null(_)
         | ConcreteDataType::List(_)

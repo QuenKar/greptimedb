@@ -23,7 +23,9 @@ use serde::{Deserialize, Serialize};
 use snafu::OptionExt;
 
 use super::boolean_type::bool_to_numeric;
+use super::Decimal128Type;
 use crate::data_type::{ConcreteDataType, DataType};
+use crate::decimal::Decimal128;
 use crate::error::{self, Result};
 use crate::scalars::{Scalar, ScalarRef, ScalarVectorBuilder};
 use crate::type_id::LogicalTypeId;
@@ -188,6 +190,20 @@ impl WrapperType for DateTime {
 
     fn into_native(self) -> Self::Native {
         self.val()
+    }
+}
+
+impl WrapperType for Decimal128 {
+    type LogicalType = Decimal128Type;
+
+    type Native = i128;
+
+    fn from_native(v: Self::Native) -> Self {
+        Self::from(v)
+    }
+
+    fn into_native(self) -> Self::Native {
+        self.into()
     }
 }
 

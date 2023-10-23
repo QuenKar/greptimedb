@@ -16,14 +16,15 @@ use std::any::Any;
 
 use common_time::{Date, DateTime};
 
+use crate::decimal::Decimal128;
 use crate::types::{
     Float32Type, Float64Type, Int16Type, Int32Type, Int64Type, Int8Type, UInt16Type, UInt32Type,
     UInt64Type, UInt8Type,
 };
 use crate::value::{ListValue, ListValueRef, Value};
 use crate::vectors::{
-    BinaryVector, BooleanVector, DateTimeVector, DateVector, ListVector, MutableVector,
-    PrimitiveVector, StringVector, Vector,
+    BinaryVector, BooleanVector, DateTimeVector, DateVector, Decimal128Vector, ListVector,
+    MutableVector, PrimitiveVector, StringVector, Vector,
 };
 
 fn get_iter_capacity<T, I: Iterator<Item = T>>(iter: &I) -> usize {
@@ -271,6 +272,27 @@ impl Scalar for Date {
 
 impl<'a> ScalarRef<'a> for Date {
     type ScalarType = Date;
+
+    fn to_owned_scalar(&self) -> Self::ScalarType {
+        *self
+    }
+}
+
+impl Scalar for Decimal128 {
+    type VectorType = Decimal128Vector;
+    type RefType<'a> = Decimal128;
+
+    fn as_scalar_ref(&self) -> Self::RefType<'_> {
+        *self
+    }
+
+    fn upcast_gat<'short, 'long: 'short>(long: Self::RefType<'long>) -> Self::RefType<'short> {
+        long
+    }
+}
+
+impl<'a> ScalarRef<'a> for Decimal128 {
+    type ScalarType = Decimal128;
 
     fn to_owned_scalar(&self) -> Self::ScalarType {
         *self

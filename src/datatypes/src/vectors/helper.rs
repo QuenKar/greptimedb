@@ -25,7 +25,7 @@ use arrow_schema::IntervalUnit;
 use datafusion_common::ScalarValue;
 use snafu::{OptionExt, ResultExt};
 
-use super::{IntervalDayTimeVector, IntervalYearMonthVector};
+use super::{Decimal128Vector, IntervalDayTimeVector, IntervalYearMonthVector};
 use crate::data_type::ConcreteDataType;
 use crate::error::{self, Result};
 use crate::scalars::{Scalar, ScalarVectorBuilder};
@@ -218,8 +218,11 @@ impl Helper {
             ScalarValue::IntervalMonthDayNano(v) => {
                 ConstantVector::new(Arc::new(IntervalMonthDayNanoVector::from(vec![v])), length)
             }
-            ScalarValue::Decimal128(_, _, _)
-            | ScalarValue::DurationSecond(_)
+            ScalarValue::Decimal128(v, p, s) => {
+                let vector = Decimal128Vector::from(vec![v]).with_precision_and_scale(p, s)?;
+                ConstantVector::new(Arc::new(vector), length)
+            }
+            ScalarValue::DurationSecond(_)
             | ScalarValue::DurationMillisecond(_)
             | ScalarValue::DurationMicrosecond(_)
             | ScalarValue::DurationNanosecond(_)
@@ -317,6 +320,9 @@ impl Helper {
                     IntervalMonthDayNanoVector::try_from_arrow_interval_array(array)?,
                 ),
             },
+            ArrowDataType::Decimal128(_, _) => {
+                Arc::new(Decimal128Vector::try_from_arrow_array(array)?)
+            }
             ArrowDataType::Float16
             | ArrowDataType::Duration(_)
             | ArrowDataType::LargeList(_)
@@ -324,7 +330,6 @@ impl Helper {
             | ArrowDataType::Struct(_)
             | ArrowDataType::Union(_, _)
             | ArrowDataType::Dictionary(_, _)
-            | ArrowDataType::Decimal128(_, _)
             | ArrowDataType::Decimal256(_, _)
             | ArrowDataType::Map(_, _)
             | ArrowDataType::RunEndEncoded(_, _) => {

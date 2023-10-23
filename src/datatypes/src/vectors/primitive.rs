@@ -29,15 +29,16 @@ use arrow_array::{
 };
 use arrow_schema::DataType;
 use serde_json::Value as JsonValue;
-use snafu::OptionExt;
+use snafu::{OptionExt, ResultExt};
 
 use crate::data_type::ConcreteDataType;
-use crate::error::{self, CastTypeSnafu, Result};
+use crate::decimal::Decimal128;
+use crate::error::{self, CastTypeSnafu, PrecisionAndScaleSnafu, Result};
 use crate::scalars::{Scalar, ScalarRef, ScalarVector, ScalarVectorBuilder};
 use crate::serialize::Serializable;
 use crate::types::{
-    Float32Type, Float64Type, Int16Type, Int32Type, Int64Type, Int8Type, LogicalPrimitiveType,
-    UInt16Type, UInt32Type, UInt64Type, UInt8Type, WrapperType,
+    Decimal128Type, Float32Type, Float64Type, Int16Type, Int32Type, Int64Type, Int8Type,
+    LogicalPrimitiveType, UInt16Type, UInt32Type, UInt64Type, UInt8Type, WrapperType,
 };
 use crate::value::{Value, ValueRef};
 use crate::vectors::{self, MutableVector, Validity, Vector, VectorRef};
@@ -58,6 +59,32 @@ pub type Float64Vector = PrimitiveVector<Float64Type>;
 /// Vector for primitive data types.
 pub struct PrimitiveVector<T: LogicalPrimitiveType> {
     array: PrimitiveArray<T::ArrowPrimitive>,
+}
+
+impl PrimitiveVector<Decimal128Type> {
+    pub fn with_precision_and_scale(self, precision: u8, scale: i8) -> Result<Self> {
+        let array = self
+            .array
+            .with_precision_and_scale(precision, scale)
+            .context(PrecisionAndScaleSnafu { precision, scale })?;
+        Ok(Self { array })
+    }
+
+    pub fn data_type(&self) -> ConcreteDataType {
+        ConcreteDataType::from_arrow_type(self.array.data_type())
+    }
+
+    pub fn precision(&self) -> u8 {
+        self.array.precision()
+    }
+
+    pub fn scale(&self) -> i8 {
+        self.array.scale()
+    }
+
+    pub fn value_as_string(&self, row: usize) -> String {
+        self.array.value_as_string(row)
+    }
 }
 
 impl<T: LogicalPrimitiveType> PrimitiveVector<T> {
@@ -347,6 +374,23 @@ impl<T: LogicalPrimitiveType> Vector for PrimitiveVector<T> {
 
     fn get(&self, index: usize) -> Value {
         if self.array.is_valid(index) {
+            // if array data type is decimal
+            if let DataType::Decimal128(p, s) = self.array.data_type() {
+                // array downcast to decimal128 array
+                let decimal_array = self
+                    .array
+                    .as_any()
+                    .downcast_ref::<arrow::array::Decimal128Array>()
+                    .unwrap();
+                // get decimal value
+                let decimal_value = unsafe {
+                    // Safety: The index have been checked by `is_valid()`.
+                    decimal_array.value_unchecked(index)
+                };
+                let decimal = Decimal128::new(decimal_value, *p, *s);
+                return Value::Decimal128(decimal);
+            }
+
             // Safety: The index have been checked by `is_valid()`.
             let wrapper = unsafe { T::Wrapper::from_native(self.array.value_unchecked(index)) };
             wrapper.into()
@@ -357,6 +401,21 @@ impl<T: LogicalPrimitiveType> Vector for PrimitiveVector<T> {
 
     fn get_ref(&self, index: usize) -> ValueRef {
         if self.array.is_valid(index) {
+            if let DataType::Decimal128(p, s) = self.array.data_type() {
+                // array downcast to decimal128 array
+                let decimal_array = self
+                    .array
+                    .as_any()
+                    .downcast_ref::<arrow::array::Decimal128Array>()
+                    .unwrap();
+                // get decimal value
+                let decimal_value = unsafe {
+                    // Safety: The index have been checked by `is_valid()`.
+                    decimal_array.value_unchecked(index)
+                };
+                let decimal = Decimal128::new(decimal_value, *p, *s);
+                return ValueRef::Decimal128(decimal);
+            }
             // Safety: The index have been checked by `is_valid()`.
             let wrapper = unsafe { T::Wrapper::from_native(self.array.value_unchecked(index)) };
             wrapper.into()
