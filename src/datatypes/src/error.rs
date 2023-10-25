@@ -122,6 +122,15 @@ pub enum Error {
 
     #[snafu(display("Failed to unpack value to given type: {}", reason))]
     TryFromValue { reason: String, location: Location },
+
+    #[snafu(display("Failed to set precision:{} and scale: {}", precision, scale))]
+    PrecisionOrScale {
+        #[snafu(source)]
+        error: arrow::error::ArrowError,
+        precision: u8,
+        scale: i8,
+        location: Location,
+    },
 }
 
 impl ErrorExt for Error {

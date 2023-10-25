@@ -27,13 +27,13 @@ use serde::{Deserialize, Serialize};
 use crate::error::{self, Error, Result};
 use crate::type_id::LogicalTypeId;
 use crate::types::{
-    BinaryType, BooleanType, DateTimeType, DateType, DictionaryType, DurationMicrosecondType,
-    DurationMillisecondType, DurationNanosecondType, DurationSecondType, DurationType, Float32Type,
-    Float64Type, Int16Type, Int32Type, Int64Type, Int8Type, IntervalDayTimeType,
-    IntervalMonthDayNanoType, IntervalType, IntervalYearMonthType, ListType, NullType, StringType,
-    TimeMillisecondType, TimeType, TimestampMicrosecondType, TimestampMillisecondType,
-    TimestampNanosecondType, TimestampSecondType, TimestampType, UInt16Type, UInt32Type,
-    UInt64Type, UInt8Type,
+    BinaryType, BooleanType, DateTimeType, DateType, Decimal128Type, DictionaryType,
+    DurationMicrosecondType, DurationMillisecondType, DurationNanosecondType, DurationSecondType,
+    DurationType, Float32Type, Float64Type, Int16Type, Int32Type, Int64Type, Int8Type,
+    IntervalDayTimeType, IntervalMonthDayNanoType, IntervalType, IntervalYearMonthType, ListType,
+    NullType, StringType, TimeMillisecondType, TimeType, TimestampMicrosecondType,
+    TimestampMillisecondType, TimestampNanosecondType, TimestampSecondType, TimestampType,
+    UInt16Type, UInt32Type, UInt64Type, UInt8Type,
 };
 use crate::value::Value;
 use crate::vectors::MutableVector;
@@ -55,6 +55,9 @@ pub enum ConcreteDataType {
     UInt64(UInt64Type),
     Float32(Float32Type),
     Float64(Float64Type),
+
+    // Decimal type:
+    Decimal128(Decimal128Type),
 
     // String types:
     Binary(BinaryType),
@@ -102,6 +105,7 @@ impl fmt::Display for ConcreteDataType {
             ConcreteDataType::Dictionary(_) => write!(f, "Dictionary"),
             ConcreteDataType::Interval(_) => write!(f, "Interval"),
             ConcreteDataType::Duration(_) => write!(f, "Duration"),
+            ConcreteDataType::Decimal128(_) => write!(f, "Decimal128"),
         }
     }
 }
@@ -181,6 +185,10 @@ impl ConcreteDataType {
 
     pub fn is_timestamp(&self) -> bool {
         matches!(self, ConcreteDataType::Timestamp(_))
+    }
+
+    pub fn is_decimal(&self) -> bool {
+        matches!(self, ConcreteDataType::Decimal128(_))
     }
 
     pub fn numerics() -> Vec<ConcreteDataType> {
@@ -291,6 +299,9 @@ impl TryFrom<&ArrowDataType> for ConcreteDataType {
             ArrowDataType::Time64(u) => ConcreteDataType::Time(TimeType::from_unit(u.into())),
             ArrowDataType::Duration(u) => {
                 ConcreteDataType::Duration(DurationType::from_unit(u.into()))
+            }
+            ArrowDataType::Decimal128(precision, scale) => {
+                ConcreteDataType::decimal128_datatype(*precision, *scale)
             }
             _ => {
                 return error::UnsupportedArrowTypeSnafu {
@@ -453,6 +464,10 @@ impl ConcreteDataType {
         value_type: ConcreteDataType,
     ) -> ConcreteDataType {
         ConcreteDataType::Dictionary(DictionaryType::new(key_type, value_type))
+    }
+
+    pub fn decimal128_datatype(precision: u8, scale: i8) -> ConcreteDataType {
+        ConcreteDataType::Decimal128(Decimal128Type::new(precision, scale))
     }
 }
 
