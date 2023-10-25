@@ -16,6 +16,7 @@
 
 pub mod arrow_array;
 pub mod data_type;
+pub mod decimal;
 pub mod duration;
 pub mod error;
 pub mod interval;
