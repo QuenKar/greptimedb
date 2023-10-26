@@ -176,7 +176,7 @@ impl Serializable for Decimal128Vector {
     fn serialize_to_json(&self) -> Result<Vec<serde_json::Value>> {
         self.iter_data()
             .map(|v| match v {
-                None => Ok(serde_json::Value::Null), // if binary vector not present, map to NULL
+                None => Ok(serde_json::Value::Null), // if decimal vector not present, map to NULL
                 Some(vec) => serde_json::to_value(vec),
             })
             .collect::<serde_json::Result<_>>()
@@ -282,9 +282,8 @@ impl MutableVector for Decimal128VectorBuilder {
                 .downcast_ref::<Decimal128Vector>()
                 .context(CastTypeSnafu {
                     msg: format!(
-                        "Failed to cast vector from {} to {}",
+                        "Failed to cast vector from {} to Decimal128Vector",
                         vector.vector_type_name(),
-                        stringify!(Decimal128Vector)
                     ),
                 })?;
         let slice = decimal_vector.get_slice(offset, length);
