@@ -12,7 +12,6 @@ test = []
 arrow-array.workspace = true
 arrow-schema.workspace = true
 arrow.workspace = true
-bigdecimal = "0.4.2"
 common-base = { workspace = true }
 common-error = { workspace = true }
 common-macro = { workspace = true }

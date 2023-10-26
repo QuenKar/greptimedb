@@ -24,9 +24,19 @@ pub const DECIMAL128_MAX_PRECISION: u8 = 38;
 /// The maximum scale for [Decimal128] values
 pub const DECIMAL128_MAX_SCALE: i8 = 38;
 
+/// The default scale for [Decimal128] values
 pub const DECIMAL128_DEFAULT_SCALE: i8 = 10;
 
-/// A decimal128 type.
+/// 128bit decimal, using the i128 to represent the decimal.
+///
+/// **precision**: the total number of digits in the number, it's range is \[1, 38\].
+///
+/// **scale**: the number of digits to the right of the decimal point, it's range is \[0, precision\].
+///
+/// Decimal value, it's range is \[-10^precision + 1 / 10^scale, 10^precision - 1 / 10^scale\].
+///
+/// For example, if precision is 10 and scale is 2,
+/// decimal range will be \[-9999999.99, 9999999.99\]
 #[derive(Debug, Default, Copy, Clone, Serialize, Deserialize)]
 pub struct Decimal128 {
     value: i128,
@@ -47,14 +57,17 @@ impl Decimal128 {
         self.value
     }
 
+    /// Returns the precision of this decimal.
     pub fn precision(&self) -> u8 {
         self.precision
     }
 
+    /// Returns the scale of this decimal.
     pub fn scale(&self) -> i8 {
         self.scale
     }
 
+    /// Returns the decimal zero
     pub fn zero() -> Self {
         Self {
             value: 0,
@@ -63,6 +76,7 @@ impl Decimal128 {
         }
     }
 
+    /// Convert to ScalarValue representation
     pub fn to_scalar_value(&self) -> (Option<i128>, u8, i8) {
         (Some(self.value), self.precision, self.scale)
     }
@@ -124,6 +138,9 @@ impl From<i128> for Decimal128 {
     }
 }
 
+/// Convert from RustDecimal to Decimal128
+/// RustDecimal can represent the range is smaller than Decimal128,
+/// so it is safe to convert RustDecimal to Decimal128
 impl From<RustDecimal> for Decimal128 {
     fn from(rd: RustDecimal) -> Self {
         let s = rd.to_string();
@@ -183,5 +200,15 @@ mod tests {
         let rd = RustDecimal::new(123456789, 9);
         let decimal = Decimal128::from(rd);
         assert_eq!(decimal.to_string(), "0.123456789");
+
+        // Max RustDecimal
+        let rd = RustDecimal::MAX;
+        let decimal = Decimal128::from(rd);
+        assert_eq!(decimal.to_string(), "79228162514264337593543950335");
+
+        // Min RustDecimal
+        let rd = RustDecimal::MIN;
+        let decimal = Decimal128::from(rd);
+        assert_eq!(decimal.to_string(), "-79228162514264337593543950335");
     }
 }
