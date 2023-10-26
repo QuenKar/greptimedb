@@ -125,7 +125,7 @@ impl LogicalTypeId {
             LogicalTypeId::DurationMillisecond => ConcreteDataType::duration_millisecond_datatype(),
             LogicalTypeId::DurationMicrosecond => ConcreteDataType::duration_microsecond_datatype(),
             LogicalTypeId::DurationNanosecond => ConcreteDataType::duration_nanosecond_datatype(),
-            LogicalTypeId::Decimal128 => todo!(),
+            LogicalTypeId::Decimal128 => ConcreteDataType::decimal128_datatype(0, 0),
         }
     }
 }
