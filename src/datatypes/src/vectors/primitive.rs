@@ -348,23 +348,6 @@ impl<T: LogicalPrimitiveType> Vector for PrimitiveVector<T> {
 
     fn get(&self, index: usize) -> Value {
         if self.array.is_valid(index) {
-            // if array data type is decimal
-            if let DataType::Decimal128(p, s) = self.array.data_type() {
-                // array downcast to decimal128 array
-                let decimal_array = self
-                    .array
-                    .as_any()
-                    .downcast_ref::<arrow::array::Decimal128Array>()
-                    .unwrap();
-                // get decimal value
-                let decimal_value = unsafe {
-                    // Safety: The index have been checked by `is_valid()`.
-                    decimal_array.value_unchecked(index)
-                };
-                let decimal = Decimal128::new(decimal_value, *p, *s);
-                return Value::Decimal128(decimal);
-            }
-
             // Safety: The index have been checked by `is_valid()`.
             let wrapper = unsafe { T::Wrapper::from_native(self.array.value_unchecked(index)) };
             wrapper.into()
@@ -375,21 +358,6 @@ impl<T: LogicalPrimitiveType> Vector for PrimitiveVector<T> {
 
     fn get_ref(&self, index: usize) -> ValueRef {
         if self.array.is_valid(index) {
-            if let DataType::Decimal128(p, s) = self.array.data_type() {
-                // array downcast to decimal128 array
-                let decimal_array = self
-                    .array
-                    .as_any()
-                    .downcast_ref::<arrow::array::Decimal128Array>()
-                    .unwrap();
-                // get decimal value
-                let decimal_value = unsafe {
-                    // Safety: The index have been checked by `is_valid()`.
-                    decimal_array.value_unchecked(index)
-                };
-                let decimal = Decimal128::new(decimal_value, *p, *s);
-                return ValueRef::Decimal128(decimal);
-            }
             // Safety: The index have been checked by `is_valid()`.
             let wrapper = unsafe { T::Wrapper::from_native(self.array.value_unchecked(index)) };
             wrapper.into()
@@ -447,8 +415,6 @@ impl<T: LogicalPrimitiveType> ScalarVector for PrimitiveVector<T> {
 
     fn get_data(&self, idx: usize) -> Option<Self::RefItem<'_>> {
         if self.array.is_valid(idx) {
-            // todo!("deal with decimal type");
-
             Some(T::Wrapper::from_native(self.array.value(idx)))
         } else {
             None

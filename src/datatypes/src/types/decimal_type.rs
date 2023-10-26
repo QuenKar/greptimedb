@@ -21,6 +21,7 @@ use crate::type_id::LogicalTypeId;
 use crate::value::Value;
 use crate::vectors::{Decimal128VectorBuilder, MutableVector};
 
+/// Decimal128 type with precision and scale information.
 #[derive(Debug, Default, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct Decimal128Type {
     precision: u8,
