@@ -80,6 +80,14 @@ impl Decimal128 {
     pub fn to_scalar_value(&self) -> (Option<i128>, u8, i8) {
         (Some(self.value), self.precision, self.scale)
     }
+
+    pub fn to_pb_value(&self) -> (i64, i64, i32) {
+        (
+            (self.value >> 64) as i64,
+            self.value as i64,
+            ((self.precision as i32) << 8) | (self.scale as i32),
+        )
+    }
 }
 
 impl PartialEq for Decimal128 {
