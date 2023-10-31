@@ -447,7 +447,7 @@ pub fn pb_value_to_value_ref(value: &v1::Value) -> ValueRef {
         ValueData::DurationMicrosecondValue(v) => ValueRef::Duration(Duration::new_microsecond(*v)),
         ValueData::DurationNanosecondValue(v) => ValueRef::Duration(Duration::new_nanosecond(*v)),
         ValueData::DecimalValue(v) => {
-            let value = ((v.hi << 64) | v.lo) as i128;
+            let value = ((v.hi as i128) << 64) | v.lo as i128;
             let precision = (v.precision_and_scale >> 8) as u8;
             let scale = (v.precision_and_scale & 0xff) as i8;
             ValueRef::Decimal128(Decimal128::new(value, precision, scale))
