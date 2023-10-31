@@ -32,7 +32,6 @@ use serde_json::Value as JsonValue;
 use snafu::OptionExt;
 
 use crate::data_type::ConcreteDataType;
-use crate::decimal::Decimal128;
 use crate::error::{self, CastTypeSnafu, Result};
 use crate::scalars::{Scalar, ScalarRef, ScalarVector, ScalarVectorBuilder};
 use crate::serialize::Serializable;
