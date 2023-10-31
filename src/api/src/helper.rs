@@ -164,8 +164,7 @@ impl TryFrom<ConcreteDataType> for ColumnDataTypeWrapper {
             ConcreteDataType::Decimal128(_) => ColumnDataType::Decimal128,
             ConcreteDataType::Null(_)
             | ConcreteDataType::List(_)
-            | ConcreteDataType::Dictionary(_)
-            | ConcreteDataType::Decimal128(_) => {
+            | ConcreteDataType::Dictionary(_) => {
                 return error::IntoColumnDataTypeSnafu { from: datatype }.fail()
             }
         });

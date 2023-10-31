@@ -226,6 +226,7 @@ impl Helper {
             | ScalarValue::DurationMillisecond(_)
             | ScalarValue::DurationMicrosecond(_)
             | ScalarValue::DurationNanosecond(_)
+            | ScalarValue::Decimal256(_, _, _)
             | ScalarValue::Struct(_, _)
             | ScalarValue::Dictionary(_, _) => {
                 return error::ConversionSnafu {

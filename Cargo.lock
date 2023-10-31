@@ -3636,7 +3636,7 @@ checksum = "d2fabcfbdc87f4758337ca535fb41a6d701b65693ce38287d856d1674551ec9b"
 [[package]]
 name = "greptime-proto"
 version = "0.1.0"
-source = "git+https://github.com/GreptimeTeam/greptime-proto.git?rev=3137cd184770e03f6a4dc191deaf02beb11fae7d#3137cd184770e03f6a4dc191deaf02beb11fae7d"
+source = "git+https://github.com/Quenkar/greptime-proto.git?rev=3d48923f3779925802ccbb28620330b7e6263823#3d48923f3779925802ccbb28620330b7e6263823"
 dependencies = [
  "prost 0.12.1",
  "serde",
@@ -9862,33 +9862,6 @@ dependencies = [
  "rustls-pemfile",
  "tokio",
  "tokio-rustls 0.24.1",
- "tokio-stream",
- "tower",
- "tower-layer",
- "tower-service",
- "tracing",
-]
-
-[[package]]
-name = "tonic"
-version = "0.10.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d560933a0de61cf715926b9cac824d4c883c2c43142f787595e48280c40a1d0e"
-dependencies = [
- "async-stream",
- "async-trait",
- "axum",
- "base64 0.21.3",
- "bytes",
- "h2",
- "http",
- "http-body",
- "hyper",
- "hyper-timeout",
- "percent-encoding",
- "pin-project",
- "prost 0.12.1",
- "tokio",
  "tokio-stream",
  "tower",
  "tower-layer",
