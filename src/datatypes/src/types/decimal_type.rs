@@ -15,14 +15,14 @@
 use arrow_schema::DataType as ArrowDataType;
 use serde::{Deserialize, Serialize};
 
-use crate::decimal::Decimal128;
+use crate::decimal::{Decimal128, DECIMAL128_DEFAULT_SCALE, DECIMAL128_MAX_PRECISION};
 use crate::prelude::{DataType, ScalarVectorBuilder};
 use crate::type_id::LogicalTypeId;
 use crate::value::Value;
 use crate::vectors::{Decimal128VectorBuilder, MutableVector};
 
 /// Decimal128 type with precision and scale information.
-#[derive(Debug, Default, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct Decimal128Type {
     precision: u8,
     scale: i8,
@@ -39,6 +39,15 @@ impl Decimal128Type {
 
     pub fn scale(&self) -> i8 {
         self.scale
+    }
+}
+
+impl Default for Decimal128Type {
+    fn default() -> Self {
+        Self {
+            precision: DECIMAL128_MAX_PRECISION,
+            scale: DECIMAL128_DEFAULT_SCALE,
+        }
     }
 }
 

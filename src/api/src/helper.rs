@@ -19,6 +19,7 @@ use common_time::interval::IntervalUnit;
 use common_time::time::Time;
 use common_time::timestamp::TimeUnit;
 use common_time::{Date, DateTime, Duration, Interval, Timestamp};
+use datatypes::decimal::Decimal128;
 use datatypes::prelude::{ConcreteDataType, ValueRef};
 use datatypes::scalars::ScalarVector;
 use datatypes::types::{
@@ -38,7 +39,10 @@ use greptime_proto::v1::ddl_request::Expr;
 use greptime_proto::v1::greptime_request::Request;
 use greptime_proto::v1::query_request::Query;
 use greptime_proto::v1::value::ValueData;
-use greptime_proto::v1::{self, DdlRequest, IntervalMonthDayNano, QueryRequest, Row, SemanticType};
+use greptime_proto::v1::{
+    self, DdlRequest, Decimal128 as PbDecimal128, IntervalMonthDayNano, QueryRequest, Row,
+    SemanticType,
+};
 use snafu::prelude::*;
 
 use crate::error::{self, Result};
@@ -109,6 +113,7 @@ impl From<ColumnDataTypeWrapper> for ConcreteDataType {
                 ConcreteDataType::duration_microsecond_datatype()
             }
             ColumnDataType::DurationNanosecond => ConcreteDataType::duration_nanosecond_datatype(),
+            ColumnDataType::Decimal128 => ConcreteDataType::default_decimal128_datatype(),
         }
     }
 }
@@ -156,6 +161,7 @@ impl TryFrom<ConcreteDataType> for ColumnDataTypeWrapper {
                 DurationType::Microsecond(_) => ColumnDataType::DurationMicrosecond,
                 DurationType::Nanosecond(_) => ColumnDataType::DurationNanosecond,
             },
+            ConcreteDataType::Decimal128(_) => ColumnDataType::Decimal128,
             ConcreteDataType::Null(_)
             | ConcreteDataType::List(_)
             | ConcreteDataType::Dictionary(_)
@@ -287,6 +293,10 @@ pub fn values_with_capacity(datatype: ColumnDataType, capacity: usize) -> Values
         },
         ColumnDataType::DurationNanosecond => Values {
             duration_nanosecond_values: Vec::with_capacity(capacity),
+            ..Default::default()
+        },
+        ColumnDataType::Decimal128 => Values {
+            decimal_values: Vec::with_capacity(capacity),
             ..Default::default()
         },
     }
@@ -437,6 +447,12 @@ pub fn pb_value_to_value_ref(value: &v1::Value) -> ValueRef {
         ValueData::DurationMillisecondValue(v) => ValueRef::Duration(Duration::new_millisecond(*v)),
         ValueData::DurationMicrosecondValue(v) => ValueRef::Duration(Duration::new_microsecond(*v)),
         ValueData::DurationNanosecondValue(v) => ValueRef::Duration(Duration::new_nanosecond(*v)),
+        ValueData::DecimalValue(v) => {
+            let value = ((v.hi << 64) | v.lo) as i128;
+            let precision = (v.precision_and_scale >> 8) as u8;
+            let scale = (v.precision_and_scale & 0xff) as i8;
+            ValueRef::Decimal128(Decimal128::new(value, precision, scale))
+        }
     }
 }
 
@@ -864,6 +880,7 @@ pub fn proto_value_type(value: &v1::Value) -> Option<ColumnDataType> {
         ValueData::DurationMillisecondValue(_) => ColumnDataType::DurationMillisecond,
         ValueData::DurationMicrosecondValue(_) => ColumnDataType::DurationMicrosecond,
         ValueData::DurationNanosecondValue(_) => ColumnDataType::DurationNanosecond,
+        ValueData::DecimalValue(_) => ColumnDataType::Decimal128,
     };
     Some(value_type)
 }
@@ -915,10 +932,10 @@ pub fn to_column_data_type(data_type: &ConcreteDataType) -> Option<ColumnDataTyp
             ColumnDataType::IntervalMonthDayNano
         }
         ConcreteDataType::Interval(IntervalType::DayTime(_)) => ColumnDataType::IntervalDayTime,
-        ConcreteDataType::Null(_)
-        | ConcreteDataType::List(_)
-        | ConcreteDataType::Dictionary(_)
-        | ConcreteDataType::Decimal128(_) => return None,
+        ConcreteDataType::Decimal128(_) => ColumnDataType::Decimal128,
+        ConcreteDataType::Null(_) | ConcreteDataType::List(_) | ConcreteDataType::Dictionary(_) => {
+            return None
+        }
     };
 
     Some(column_data_type)
@@ -982,7 +999,15 @@ pub fn value_to_grpc_value(value: Value) -> GrpcValue {
                 TimeUnit::Microsecond => ValueData::DurationMicrosecondValue(v.value()),
                 TimeUnit::Nanosecond => ValueData::DurationNanosecondValue(v.value()),
             }),
-            Value::List(_) | Value::Decimal128(_) => unreachable!(),
+            Value::Decimal128(v) => {
+                let (hi, lo, precision_and_scale) = v.to_pb_value();
+                Some(ValueData::DecimalValue(PbDecimal128 {
+                    hi,
+                    lo,
+                    precision_and_scale,
+                }))
+            }
+            Value::List(_) => unreachable!(),
         },
     }
 }

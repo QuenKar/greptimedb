@@ -469,6 +469,10 @@ impl ConcreteDataType {
     pub fn decimal128_datatype(precision: u8, scale: i8) -> ConcreteDataType {
         ConcreteDataType::Decimal128(Decimal128Type::new(precision, scale))
     }
+
+    pub fn default_decimal128_datatype() -> ConcreteDataType {
+        ConcreteDataType::Decimal128(Decimal128Type::default())
+    }
 }
 
 /// Data type abstraction.
