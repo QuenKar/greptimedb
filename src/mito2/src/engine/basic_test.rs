@@ -29,7 +29,7 @@ use super::*;
 use crate::region::version::VersionControlData;
 use crate::test_util::{
     build_delete_rows_for_key, build_rows, build_rows_for_key, delete_rows, delete_rows_schema,
-    put_rows, rows_schema, CreateRequestBuilder, TestEnv,
+    flush_region, put_rows, rows_schema, CreateRequestBuilder, TestEnv,
 };
 
 #[tokio::test]
@@ -456,4 +456,55 @@ async fn test_absent_and_invalid_columns() {
         .await
         .unwrap_err();
     assert_eq!(StatusCode::InvalidArguments, err.status_code());
+}
+
+#[tokio::test]
+async fn test_region_usage() {
+    let mut env = TestEnv::with_prefix("region_usage");
+    let engine = env.create_engine(MitoConfig::default()).await;
+
+    let region_id = RegionId::new(1, 1);
+    let request = CreateRequestBuilder::new().build();
+
+    let column_schemas = rows_schema(&request);
+    let delete_schema = delete_rows_schema(&request);
+    engine
+        .handle_request(region_id, RegionRequest::Create(request))
+        .await
+        .unwrap();
+    // region is empty now, check manifest size
+    let region = engine.get_region(region_id).unwrap();
+    let region_stat = region.region_usage().await;
+    assert_eq!(region_stat.manifest_usage, 686);
+
+    // put some rows
+    let rows = Rows {
+        schema: column_schemas.clone(),
+        rows: build_rows_for_key("a", 0, 10, 0),
+    };
+
+    put_rows(&engine, region_id, rows).await;
+
+    let region_stat = region.region_usage().await;
+    assert!(region_stat.wal_usage > 0);
+
+    // delete some rows
+    let rows = Rows {
+        schema: delete_schema.clone(),
+        rows: build_delete_rows_for_key("a", 0, 3),
+    };
+    delete_rows(&engine, region_id, rows).await;
+
+    let region_stat = region.region_usage().await;
+    assert!(region_stat.wal_usage > 0);
+
+    // flush region
+    flush_region(&engine, region_id, None).await;
+
+    let region_stat = region.region_usage().await;
+    assert!(region_stat.wal_usage == 0);
+    assert_eq!(region_stat.sst_usage, 2827);
+
+    // region total usage
+    assert_eq!(region_stat.disk_usage(), 3833);
 }

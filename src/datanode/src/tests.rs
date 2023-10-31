@@ -37,7 +37,7 @@ use query::query_engine::DescribeResult;
 use query::QueryEngine;
 use session::context::QueryContextRef;
 use store_api::metadata::RegionMetadataRef;
-use store_api::region_engine::RegionEngine;
+use store_api::region_engine::{RegionEngine, RegionRole};
 use store_api::region_request::RegionRequest;
 use store_api::storage::{RegionId, ScanRequest};
 use table::TableRef;
@@ -179,11 +179,19 @@ impl RegionEngine for MockRegionEngine {
         unimplemented!()
     }
 
+    async fn region_disk_usage(&self, _region_id: RegionId) -> Option<i64> {
+        unimplemented!()
+    }
+
     async fn stop(&self) -> Result<(), BoxedError> {
         Ok(())
     }
 
     fn set_writable(&self, _region_id: RegionId, _writable: bool) -> Result<(), BoxedError> {
         Ok(())
+    }
+
+    fn role(&self, _region_id: RegionId) -> Option<RegionRole> {
+        Some(RegionRole::Leader)
     }
 }

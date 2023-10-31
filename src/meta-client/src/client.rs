@@ -17,7 +17,7 @@ mod ddl;
 mod heartbeat;
 mod load_balance;
 mod lock;
-mod router;
+
 mod store;
 
 use api::v1::meta::Role;
@@ -27,18 +27,15 @@ use common_meta::ddl::{DdlTaskExecutor, ExecutorContext};
 use common_meta::error::{self as meta_error, Result as MetaResult};
 use common_meta::rpc::ddl::{SubmitDdlTaskRequest, SubmitDdlTaskResponse};
 use common_meta::rpc::lock::{LockRequest, LockResponse, UnlockRequest};
-use common_meta::rpc::router::{RouteRequest, RouteResponse};
 use common_meta::rpc::store::{
     BatchDeleteRequest, BatchDeleteResponse, BatchGetRequest, BatchGetResponse, BatchPutRequest,
     BatchPutResponse, CompareAndPutRequest, CompareAndPutResponse, DeleteRangeRequest,
-    DeleteRangeResponse, MoveValueRequest, MoveValueResponse, PutRequest, PutResponse,
-    RangeRequest, RangeResponse,
+    DeleteRangeResponse, PutRequest, PutResponse, RangeRequest, RangeResponse,
 };
 use common_telemetry::info;
 use ddl::Client as DdlClient;
 use heartbeat::Client as HeartbeatClient;
 use lock::Client as LockClient;
-use router::Client as RouterClient;
 use snafu::{OptionExt, ResultExt};
 use store::Client as StoreClient;
 
@@ -152,9 +149,6 @@ impl MetaClientBuilder {
                 DEFAULT_ASK_LEADER_MAX_RETRY,
             ));
         }
-        if self.enable_router {
-            client.router = Some(RouterClient::new(self.id, self.role, mgr.clone()));
-        }
         if self.enable_store {
             client.store = Some(StoreClient::new(self.id, self.role, mgr.clone()));
         }
@@ -180,7 +174,6 @@ pub struct MetaClient {
     id: Id,
     channel_manager: ChannelManager,
     heartbeat: Option<HeartbeatClient>,
-    router: Option<RouterClient>,
     store: Option<StoreClient>,
     lock: Option<LockClient>,
     ddl: Option<DdlClient>,
@@ -227,10 +220,6 @@ impl MetaClient {
             client.start(urls.clone()).await?;
             info!("Heartbeat client started");
         }
-        if let Some(client) = &mut self.router {
-            client.start(urls.clone()).await?;
-            info!("Router client started");
-        }
         if let Some(client) = &mut self.store {
             client.start(urls.clone()).await?;
             info!("Store client started");
@@ -261,33 +250,6 @@ impl MetaClient {
     /// from "metasrv" (which may contain some scheduling instructions).
     pub async fn heartbeat(&self) -> Result<(HeartbeatSender, HeartbeatStream)> {
         self.heartbeat_client()?.heartbeat().await
-    }
-
-    /// Fetch routing information for tables. The smallest unit is the complete
-    /// routing information(all regions) of a table.
-    ///
-    /// ```text
-    /// table_1
-    ///    table_name
-    ///    table_schema
-    ///    regions
-    ///      region_1
-    ///        leader_peer
-    ///        follower_peer_1, follower_peer_2
-    ///      region_2
-    ///        leader_peer
-    ///        follower_peer_1, follower_peer_2, follower_peer_3
-    ///      region_xxx
-    /// table_2
-    ///    ...
-    /// ```
-    ///
-    pub async fn route(&self, req: RouteRequest) -> Result<RouteResponse> {
-        self.router_client()?
-            .route(req.into())
-            .await?
-            .try_into()
-            .context(ConvertMetaResponseSnafu)
     }
 
     /// Range gets the keys in the range from the key-value store.
@@ -357,15 +319,6 @@ impl MetaClient {
             .context(ConvertMetaResponseSnafu)
     }
 
-    /// MoveValue atomically renames the key to the given updated key.
-    pub async fn move_value(&self, req: MoveValueRequest) -> Result<MoveValueResponse> {
-        self.store_client()?
-            .move_value(req.into())
-            .await?
-            .try_into()
-            .context(ConvertMetaResponseSnafu)
-    }
-
     pub async fn lock(&self, req: LockRequest) -> Result<LockResponse> {
         self.lock_client()?.lock(req.into()).await.map(Into::into)
     }
@@ -393,13 +346,6 @@ impl MetaClient {
     pub fn heartbeat_client(&self) -> Result<HeartbeatClient> {
         self.heartbeat.clone().context(error::NotStartedSnafu {
             name: "heartbeat_client",
-        })
-    }
-
-    #[inline]
-    pub fn router_client(&self) -> Result<RouterClient> {
-        self.router.clone().context(error::NotStartedSnafu {
-            name: "store_client",
         })
     }
 
@@ -499,7 +445,6 @@ mod tests {
             .enable_heartbeat()
             .build();
         let _ = meta_client.heartbeat_client().unwrap();
-        assert!(meta_client.router_client().is_err());
         assert!(meta_client.store_client().is_err());
         meta_client.start(urls).await.unwrap();
         assert!(meta_client.heartbeat_client().unwrap().is_started().await);
@@ -508,16 +453,13 @@ mod tests {
             .enable_router()
             .build();
         assert!(meta_client.heartbeat_client().is_err());
-        let _ = meta_client.router_client().unwrap();
         assert!(meta_client.store_client().is_err());
         meta_client.start(urls).await.unwrap();
-        assert!(meta_client.router_client().unwrap().is_started().await);
 
         let mut meta_client = MetaClientBuilder::new(0, 0, Role::Datanode)
             .enable_store()
             .build();
         assert!(meta_client.heartbeat_client().is_err());
-        assert!(meta_client.router_client().is_err());
         let _ = meta_client.store_client().unwrap();
         meta_client.start(urls).await.unwrap();
         assert!(meta_client.store_client().unwrap().is_started().await);
@@ -530,11 +472,9 @@ mod tests {
         assert_eq!(1, meta_client.id().0);
         assert_eq!(2, meta_client.id().1);
         let _ = meta_client.heartbeat_client().unwrap();
-        let _ = meta_client.router_client().unwrap();
         let _ = meta_client.store_client().unwrap();
         meta_client.start(urls).await.unwrap();
         assert!(meta_client.heartbeat_client().unwrap().is_started().await);
-        assert!(meta_client.router_client().unwrap().is_started().await);
         assert!(meta_client.store_client().unwrap().is_started().await);
     }
 
@@ -547,20 +487,6 @@ mod tests {
             .build();
         meta_client.start(urls).await.unwrap();
         let res = meta_client.ask_leader().await;
-        assert!(matches!(res.err(), Some(error::Error::NotStarted { .. })));
-    }
-
-    #[tokio::test]
-    async fn test_not_start_router_client() {
-        let urls = &["127.0.0.1:3001", "127.0.0.1:3002"];
-        let mut meta_client = MetaClientBuilder::new(0, 0, Role::Datanode)
-            .enable_heartbeat()
-            .enable_store()
-            .build();
-        meta_client.start(urls).await.unwrap();
-
-        let req = RouteRequest::new(1);
-        let res = meta_client.route(req).await;
         assert!(matches!(res.err(), Some(error::Error::NotStarted { .. })));
     }
 
@@ -897,39 +823,5 @@ mod tests {
                 kv.take_value()
             );
         }
-    }
-
-    #[tokio::test]
-    async fn test_move_value() {
-        let tc = new_client("test_move_value").await;
-
-        let from_key = tc.key("from_key");
-        let to_key = tc.key("to_key");
-
-        let req = MoveValueRequest::new(from_key.as_slice(), to_key.as_slice());
-        let res = tc.client.move_value(req).await;
-        assert!(res.unwrap().take_kv().is_none());
-
-        let req = PutRequest::new()
-            .with_key(to_key.as_slice())
-            .with_value(b"value".to_vec());
-        let _ = tc.client.put(req).await;
-
-        let req = MoveValueRequest::new(from_key.as_slice(), to_key.as_slice());
-        let res = tc.client.move_value(req).await;
-        let mut kv = res.unwrap().take_kv().unwrap();
-        assert_eq!(to_key.clone(), kv.take_key());
-        assert_eq!(b"value".to_vec(), kv.take_value());
-
-        let req = PutRequest::new()
-            .with_key(from_key.as_slice())
-            .with_value(b"value2".to_vec());
-        let _ = tc.client.put(req).await;
-
-        let req = MoveValueRequest::new(from_key.as_slice(), to_key.as_slice());
-        let res = tc.client.move_value(req).await;
-        let mut kv = res.unwrap().take_kv().unwrap();
-        assert_eq!(from_key, kv.take_key());
-        assert_eq!(b"value2".to_vec(), kv.take_value());
     }
 }
