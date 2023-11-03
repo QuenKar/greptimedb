@@ -16,6 +16,7 @@
 
 use std::collections::HashMap;
 
+use api::helper::string_column_datatype;
 use api::v1::value::ValueData;
 use api::v1::Rows;
 use common_error::ext::ErrorExt;
@@ -429,7 +430,7 @@ async fn test_absent_and_invalid_columns() {
         .unwrap();
 
     // Change the type of field_1 in input.
-    column_schemas[2].datatype = api::v1::ColumnDataType::String as i32;
+    column_schemas[2].datatype = Some(string_column_datatype());
     // Input tag_0, field_1 (invalid type string), ts
     column_schemas.remove(1);
     let rows = (0..3)

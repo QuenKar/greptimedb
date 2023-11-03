@@ -137,7 +137,8 @@ fn parse_location(location: Option<Location>) -> Result<Option<AddColumnLocation
 
 #[cfg(test)]
 mod tests {
-    use api::v1::{AddColumn, AddColumns, ColumnDataType, ColumnDef, DropColumn, SemanticType};
+    use api::helper::float64_column_datatype;
+    use api::v1::{AddColumn, AddColumns, ColumnDef, DropColumn, SemanticType};
     use datatypes::prelude::ConcreteDataType;
 
     use super::*;
@@ -153,7 +154,7 @@ mod tests {
                 add_columns: vec![AddColumn {
                     column_def: Some(ColumnDef {
                         name: "mem_usage".to_string(),
-                        data_type: ColumnDataType::Float64 as i32,
+                        data_type: Some(float64_column_datatype()),
                         is_nullable: false,
                         default_constraint: vec![],
                         semantic_type: SemanticType::Field as i32,
@@ -194,7 +195,7 @@ mod tests {
                     AddColumn {
                         column_def: Some(ColumnDef {
                             name: "mem_usage".to_string(),
-                            data_type: ColumnDataType::Float64 as i32,
+                            data_type: Some(float64_column_datatype()),
                             is_nullable: false,
                             default_constraint: vec![],
                             semantic_type: SemanticType::Field as i32,
@@ -208,7 +209,7 @@ mod tests {
                     AddColumn {
                         column_def: Some(ColumnDef {
                             name: "cpu_usage".to_string(),
-                            data_type: ColumnDataType::Float64 as i32,
+                            data_type: Some(float64_column_datatype()),
                             is_nullable: false,
                             default_constraint: vec![],
                             semantic_type: SemanticType::Field as i32,

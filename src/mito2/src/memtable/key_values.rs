@@ -184,7 +184,8 @@ impl ReadRowHelper {
 
 #[cfg(test)]
 mod tests {
-    use api::v1::{self, ColumnDataType, SemanticType};
+    use api::helper::{int64_column_datatype, timestamp_millisecond_column_datatype};
+    use api::v1::{self, SemanticType};
 
     use super::*;
     use crate::test_util::i64_value;
@@ -218,9 +219,9 @@ mod tests {
             .iter()
             .map(|column_name| {
                 let datatype = if *column_name == TS_NAME {
-                    ColumnDataType::TimestampMillisecond as i32
+                    timestamp_millisecond_column_datatype()
                 } else {
-                    ColumnDataType::Int64 as i32
+                    int64_column_datatype()
                 };
                 let semantic_type = if column_name.starts_with('k') {
                     SemanticType::Tag as i32
@@ -231,7 +232,7 @@ mod tests {
                 };
                 v1::ColumnSchema {
                     column_name: column_name.to_string(),
-                    datatype,
+                    datatype: Some(datatype),
                     semantic_type,
                 }
             })

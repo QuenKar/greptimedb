@@ -15,6 +15,7 @@ use std::any::Any;
 use std::net::SocketAddr;
 use std::string::FromUtf8Error;
 
+use api::v1::ColumnDataType;
 use axum::http::StatusCode as HttpStatusCode;
 use axum::response::{IntoResponse, Response};
 use axum::{http, Json};
@@ -368,7 +369,7 @@ pub enum Error {
     },
 
     #[snafu(display(
-        "Column: {}, {} incompatible, expected: {}, actual: {}",
+        "Column: {}, {} incompatible, expected: {:?}, actual: {:?}",
         column_name,
         datatype,
         expected,
@@ -377,6 +378,20 @@ pub enum Error {
     IncompatibleSchema {
         column_name: String,
         datatype: String,
+        expected: Option<ColumnDataType>,
+        actual: Option<ColumnDataType>,
+        location: Location,
+    },
+    #[snafu(display(
+        "Column: {}, {} incompatible, expected: {}, actual: {}",
+        column_name,
+        semantic_type,
+        expected,
+        actual
+    ))]
+    IncompatibleSemanticType {
+        column_name: String,
+        semantic_type: String,
         expected: i32,
         actual: i32,
         location: Location,
@@ -428,7 +443,8 @@ impl ErrorExt for Error {
             | DataFrame { .. }
             | PreparedStmtTypeMismatch { .. }
             | TimePrecision { .. }
-            | IncompatibleSchema { .. } => StatusCode::InvalidArguments,
+            | IncompatibleSchema { .. }
+            | IncompatibleSemanticType { .. } => StatusCode::InvalidArguments,
 
             InfluxdbLinesWrite { source, .. }
             | PromSeriesWrite { source, .. }

@@ -14,6 +14,9 @@
 
 use std::collections::HashMap;
 
+use api::helper::{
+    float64_column_datatype, string_column_datatype, timestamp_millisecond_column_datatype,
+};
 use api::v1::value::ValueData;
 use api::v1::{
     ColumnDataType, ColumnSchema, Row, RowInsertRequest, RowInsertRequests, Rows, SemanticType,
@@ -25,7 +28,10 @@ use common_time::timestamp::TimeUnit;
 use common_time::Timestamp;
 use snafu::{ensure, OptionExt, ResultExt};
 
-use crate::error::{IncompatibleSchemaSnafu, InfluxdbLinesWriteSnafu, Result, TimePrecisionSnafu};
+use crate::error::{
+    IncompatibleSchemaSnafu, IncompatibleSemanticTypeSnafu, InfluxdbLinesWriteSnafu, Result,
+    TimePrecisionSnafu,
+};
 
 pub struct TableData {
     schema: Vec<ColumnSchema>,
@@ -146,7 +152,7 @@ pub fn write_tags(
     let ktv_iter = kvs.map(|(k, v)| {
         (
             k,
-            ColumnDataType::String,
+            string_column_datatype(),
             ValueData::StringValue(v.to_string()),
         )
     });
@@ -172,7 +178,7 @@ pub fn write_tag(
         SemanticType::Tag,
         std::iter::once((
             name.to_string(),
-            ColumnDataType::String,
+            string_column_datatype(),
             ValueData::StringValue(value.to_string()),
         )),
         one_row,
@@ -189,7 +195,7 @@ pub fn write_f64(
         table_data,
         std::iter::once((
             name.to_string(),
-            ColumnDataType::Float64,
+            float64_column_datatype(),
             ValueData::F64Value(value),
         )),
         one_row,
@@ -213,7 +219,7 @@ fn write_by_semantic_type(
         if *index == schema.len() {
             schema.push(ColumnSchema {
                 column_name: name.to_string(),
-                datatype: datatype as i32,
+                datatype: Some(datatype),
                 semantic_type: semantic_type as i32,
             });
             one_row.push(value.into());
@@ -267,13 +273,13 @@ pub fn write_ts_precision(
     if *index == schema.len() {
         schema.push(ColumnSchema {
             column_name: name,
-            datatype: ColumnDataType::TimestampMillisecond as i32,
+            datatype: Some(timestamp_millisecond_column_datatype()),
             semantic_type: SemanticType::Timestamp as i32,
         });
         one_row.push(ValueData::TimestampMillisecondValue(ts).into())
     } else {
         check_schema(
-            ColumnDataType::TimestampMillisecond,
+            timestamp_millisecond_column_datatype(),
             SemanticType::Timestamp,
             &schema[*index],
         )?;
@@ -290,20 +296,20 @@ fn check_schema(
     schema: &ColumnSchema,
 ) -> Result<()> {
     ensure!(
-        schema.datatype == datatype as i32,
+        schema.datatype.clone() == Some(datatype.clone()),
         IncompatibleSchemaSnafu {
             column_name: &schema.column_name,
             datatype: "datatype",
-            expected: schema.datatype,
-            actual: datatype as i32,
+            expected: schema.datatype.clone(),
+            actual: Some(datatype),
         }
     );
 
     ensure!(
         schema.semantic_type == semantic_type as i32,
-        IncompatibleSchemaSnafu {
+        IncompatibleSemanticTypeSnafu {
             column_name: &schema.column_name,
-            datatype: "semantic_type",
+            semantic_type: "semantic_type",
             expected: schema.semantic_type,
             actual: semantic_type as i32,
         }

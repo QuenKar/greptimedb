@@ -15,7 +15,11 @@
 use std::collections::HashMap;
 use std::fmt::Display;
 
-use api::helper::values_with_capacity;
+use api::helper::{
+    boolean_column_datatype, float64_column_datatype, int64_column_datatype,
+    string_column_datatype, timestamp_millisecond_column_datatype, uint64_column_datatype,
+    values_with_capacity,
+};
 use api::v1::{Column, ColumnDataType, SemanticType};
 use common_base::BitVec;
 use common_time::timestamp::TimeUnit;
@@ -48,11 +52,11 @@ impl LinesWriter {
     pub fn write_ts(&mut self, column_name: &str, value: (i64, Precision)) -> Result<()> {
         let (idx, column) = self.mut_column(
             column_name,
-            ColumnDataType::TimestampMillisecond,
+            timestamp_millisecond_column_datatype(),
             SemanticType::Timestamp,
         );
         ensure!(
-            column.datatype == ColumnDataType::TimestampMillisecond as i32,
+            column.datatype == Some(timestamp_millisecond_column_datatype()),
             TypeMismatchSnafu {
                 column_name,
                 expected: "timestamp",
@@ -69,9 +73,10 @@ impl LinesWriter {
     }
 
     pub fn write_tag(&mut self, column_name: &str, value: &str) -> Result<()> {
-        let (idx, column) = self.mut_column(column_name, ColumnDataType::String, SemanticType::Tag);
+        let (idx, column) =
+            self.mut_column(column_name, string_column_datatype(), SemanticType::Tag);
         ensure!(
-            column.datatype == ColumnDataType::String as i32,
+            column.datatype == Some(string_column_datatype()),
             TypeMismatchSnafu {
                 column_name,
                 expected: "string",
@@ -87,9 +92,9 @@ impl LinesWriter {
 
     pub fn write_u64(&mut self, column_name: &str, value: u64) -> Result<()> {
         let (idx, column) =
-            self.mut_column(column_name, ColumnDataType::Uint64, SemanticType::Field);
+            self.mut_column(column_name, uint64_column_datatype(), SemanticType::Field);
         ensure!(
-            column.datatype == ColumnDataType::Uint64 as i32,
+            column.datatype == Some(uint64_column_datatype()),
             TypeMismatchSnafu {
                 column_name,
                 expected: "u64",
@@ -105,9 +110,9 @@ impl LinesWriter {
 
     pub fn write_i64(&mut self, column_name: &str, value: i64) -> Result<()> {
         let (idx, column) =
-            self.mut_column(column_name, ColumnDataType::Int64, SemanticType::Field);
+            self.mut_column(column_name, int64_column_datatype(), SemanticType::Field);
         ensure!(
-            column.datatype == ColumnDataType::Int64 as i32,
+            column.datatype == Some(int64_column_datatype()),
             TypeMismatchSnafu {
                 column_name,
                 expected: "i64",
@@ -123,9 +128,9 @@ impl LinesWriter {
 
     pub fn write_f64(&mut self, column_name: &str, value: f64) -> Result<()> {
         let (idx, column) =
-            self.mut_column(column_name, ColumnDataType::Float64, SemanticType::Field);
+            self.mut_column(column_name, float64_column_datatype(), SemanticType::Field);
         ensure!(
-            column.datatype == ColumnDataType::Float64 as i32,
+            column.datatype == Some(float64_column_datatype()),
             TypeMismatchSnafu {
                 column_name,
                 expected: "f64",
@@ -141,9 +146,9 @@ impl LinesWriter {
 
     pub fn write_string(&mut self, column_name: &str, value: &str) -> Result<()> {
         let (idx, column) =
-            self.mut_column(column_name, ColumnDataType::String, SemanticType::Field);
+            self.mut_column(column_name, string_column_datatype(), SemanticType::Field);
         ensure!(
-            column.datatype == ColumnDataType::String as i32,
+            column.datatype == Some(string_column_datatype()),
             TypeMismatchSnafu {
                 column_name,
                 expected: "string",
@@ -159,9 +164,9 @@ impl LinesWriter {
 
     pub fn write_bool(&mut self, column_name: &str, value: bool) -> Result<()> {
         let (idx, column) =
-            self.mut_column(column_name, ColumnDataType::Boolean, SemanticType::Field);
+            self.mut_column(column_name, boolean_column_datatype(), SemanticType::Field);
         ensure!(
-            column.datatype == ColumnDataType::Boolean as i32,
+            column.datatype == Some(boolean_column_datatype()),
             TypeMismatchSnafu {
                 column_name,
                 expected: "boolean",
@@ -215,8 +220,8 @@ impl LinesWriter {
                 batch.0.push(Column {
                     column_name: column_name.to_string(),
                     semantic_type: semantic_type.into(),
-                    values: Some(values_with_capacity(datatype, to_insert)),
-                    datatype: datatype as i32,
+                    values: Some(values_with_capacity(datatype.clone(), to_insert)),
+                    datatype: Some(datatype),
                     null_mask: Vec::default(),
                 });
                 let _ = column_names.insert(column_name.to_string(), new_idx);
@@ -281,7 +286,11 @@ impl TryFrom<Precision> for TimeUnit {
 
 #[cfg(test)]
 mod tests {
-    use api::v1::{ColumnDataType, SemanticType};
+    use api::helper::{
+        boolean_column_datatype, float64_column_datatype, int64_column_datatype,
+        string_column_datatype, timestamp_millisecond_column_datatype, uint64_column_datatype,
+    };
+    use api::v1::SemanticType;
     use common_base::BitVec;
 
     use super::LinesWriter;
@@ -325,7 +334,7 @@ mod tests {
 
         let column = &columns[0];
         assert_eq!("host", columns[0].column_name);
-        assert_eq!(ColumnDataType::String as i32, column.datatype);
+        assert_eq!(Some(string_column_datatype()), column.datatype);
         assert_eq!(SemanticType::Tag as i32, column.semantic_type);
         assert_eq!(
             vec!["host1", "host2", "host3"],
@@ -335,28 +344,31 @@ mod tests {
 
         let column = &columns[1];
         assert_eq!("cpu", column.column_name);
-        assert_eq!(ColumnDataType::Float64 as i32, column.datatype);
+        assert_eq!(Some(float64_column_datatype()), column.datatype);
         assert_eq!(SemanticType::Field as i32, column.semantic_type);
         assert_eq!(vec![0.5, 0.4], column.values.as_ref().unwrap().f64_values);
         verify_null_mask(&column.null_mask, vec![false, true, false]);
 
         let column = &columns[2];
         assert_eq!("memory", column.column_name);
-        assert_eq!(ColumnDataType::Float64 as i32, column.datatype);
+        assert_eq!(Some(float64_column_datatype()), column.datatype);
         assert_eq!(SemanticType::Field as i32, column.semantic_type);
         assert_eq!(vec![0.4], column.values.as_ref().unwrap().f64_values);
         verify_null_mask(&column.null_mask, vec![false, true, true]);
 
         let column = &columns[3];
         assert_eq!("name", column.column_name);
-        assert_eq!(ColumnDataType::String as i32, column.datatype);
+        assert_eq!(Some(string_column_datatype()), column.datatype);
         assert_eq!(SemanticType::Field as i32, column.semantic_type);
         assert_eq!(vec!["name1"], column.values.as_ref().unwrap().string_values);
         verify_null_mask(&column.null_mask, vec![false, true, true]);
 
         let column = &columns[4];
         assert_eq!("ts", column.column_name);
-        assert_eq!(ColumnDataType::TimestampMillisecond as i32, column.datatype);
+        assert_eq!(
+            Some(timestamp_millisecond_column_datatype()),
+            column.datatype
+        );
         assert_eq!(SemanticType::Timestamp as i32, column.semantic_type);
         assert_eq!(
             vec![101011000, 102011001, 103011002],
@@ -366,28 +378,28 @@ mod tests {
 
         let column = &columns[5];
         assert_eq!("enable_reboot", column.column_name);
-        assert_eq!(ColumnDataType::Boolean as i32, column.datatype);
+        assert_eq!(Some(boolean_column_datatype()), column.datatype);
         assert_eq!(SemanticType::Field as i32, column.semantic_type);
         assert_eq!(vec![true], column.values.as_ref().unwrap().bool_values);
         verify_null_mask(&column.null_mask, vec![true, false, true]);
 
         let column = &columns[6];
         assert_eq!("year_of_service", column.column_name);
-        assert_eq!(ColumnDataType::Uint64 as i32, column.datatype);
+        assert_eq!(Some(uint64_column_datatype()), column.datatype);
         assert_eq!(SemanticType::Field as i32, column.semantic_type);
         assert_eq!(vec![2], column.values.as_ref().unwrap().u64_values);
         verify_null_mask(&column.null_mask, vec![true, false, true]);
 
         let column = &columns[7];
         assert_eq!("temperature", column.column_name);
-        assert_eq!(ColumnDataType::Int64 as i32, column.datatype);
+        assert_eq!(Some(int64_column_datatype()), column.datatype);
         assert_eq!(SemanticType::Field as i32, column.semantic_type);
         assert_eq!(vec![4], column.values.as_ref().unwrap().i64_values);
         verify_null_mask(&column.null_mask, vec![true, false, true]);
 
         let column = &columns[8];
         assert_eq!("cpu_core_num", column.column_name);
-        assert_eq!(ColumnDataType::Uint64 as i32, column.datatype);
+        assert_eq!(Some(uint64_column_datatype()), column.datatype);
         assert_eq!(SemanticType::Field as i32, column.semantic_type);
         assert_eq!(vec![16], column.values.as_ref().unwrap().u64_values);
         verify_null_mask(&column.null_mask, vec![true, true, false]);

@@ -15,7 +15,8 @@
 use std::collections::HashSet;
 
 use api::v1::{
-    AddColumn, AddColumns, Column, ColumnDef, ColumnSchema, CreateTableExpr, SemanticType,
+    AddColumn, AddColumns, Column, ColumnDataType, ColumnDef, ColumnSchema, CreateTableExpr,
+    SemanticType,
 };
 use datatypes::schema::Schema;
 use snafu::{ensure, OptionExt};
@@ -28,7 +29,7 @@ use crate::error::{
 
 pub struct ColumnExpr<'a> {
     pub column_name: &'a str,
-    pub datatype: i32,
+    pub datatype: Option<ColumnDataType>,
     pub semantic_type: i32,
 }
 
@@ -48,7 +49,7 @@ impl<'a> From<&'a Column> for ColumnExpr<'a> {
     fn from(column: &'a Column) -> Self {
         Self {
             column_name: &column.column_name,
-            datatype: column.datatype,
+            datatype: column.datatype.clone(),
             semantic_type: column.semantic_type,
         }
     }
@@ -58,7 +59,7 @@ impl<'a> From<&'a ColumnSchema> for ColumnExpr<'a> {
     fn from(schema: &'a ColumnSchema) -> Self {
         Self {
             column_name: &schema.column_name,
-            datatype: schema.datatype,
+            datatype: schema.datatype.clone(),
             semantic_type: schema.semantic_type,
         }
     }

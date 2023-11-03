@@ -35,6 +35,9 @@ pub enum Error {
         error: prost::DecodeError,
     },
 
+    #[snafu(display("Column datatype not found"))]
+    ColumnDataTypeNotFound { location: Location },
+
     #[snafu(display("Failed to create column datatype from {:?}", from))]
     IntoColumnDataType {
         from: ConcreteDataType,
@@ -60,7 +63,9 @@ impl ErrorExt for Error {
     fn status_code(&self) -> StatusCode {
         match self {
             Error::UnknownColumnDataType { .. } => StatusCode::InvalidArguments,
-            Error::IntoColumnDataType { .. } => StatusCode::Unexpected,
+            Error::IntoColumnDataType { .. } | Error::ColumnDataTypeNotFound { .. } => {
+                StatusCode::Unexpected
+            }
             Error::ConvertColumnDefaultConstraint { source, .. }
             | Error::InvalidColumnDefaultConstraint { source, .. } => source.status_code(),
         }

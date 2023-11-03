@@ -75,7 +75,7 @@ impl SortField {
             ConcreteDataType::Time(_) => 10,
             ConcreteDataType::Duration(_) => 10,
             ConcreteDataType::Interval(_) => 18,
-            ConcreteDataType::Decimal128(_) => 17,
+            ConcreteDataType::Decimal128(_) => 32,
             ConcreteDataType::Null(_)
             | ConcreteDataType::List(_)
             | ConcreteDataType::Dictionary(_) => 0,

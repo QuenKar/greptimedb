@@ -441,6 +441,9 @@ pub fn mock_timeseries() -> Vec<TimeSeries> {
 mod tests {
     use std::sync::Arc;
 
+    use api::helper::{
+        float64_column_datatype, string_column_datatype, timestamp_millisecond_column_datatype,
+    };
     use api::prom_store::remote::LabelMatcher;
     use api::v1::{ColumnDataType, Row, SemanticType};
     use datafusion::prelude::SessionContext;
@@ -562,12 +565,12 @@ mod tests {
     ) -> Vec<api::v1::ColumnSchema> {
         kts_iter.push((
             "greptime_value",
-            ColumnDataType::Float64,
+            float64_column_datatype(),
             SemanticType::Field,
         ));
         kts_iter.push((
             "greptime_timestamp",
-            ColumnDataType::TimestampMillisecond,
+            timestamp_millisecond_column_datatype(),
             SemanticType::Timestamp,
         ));
 
@@ -575,7 +578,7 @@ mod tests {
             .into_iter()
             .map(|(k, t, s)| api::v1::ColumnSchema {
                 column_name: k.to_string(),
-                datatype: t as i32,
+                datatype: Some(t),
                 semantic_type: s as i32,
             })
             .collect()
@@ -643,7 +646,7 @@ mod tests {
         assert_eq!(2, rows.len());
         assert_eq!(3, schema.len());
         assert_eq!(
-            column_schemas_with(vec![("job", ColumnDataType::String, SemanticType::Tag)]),
+            column_schemas_with(vec![("job", string_column_datatype(), SemanticType::Tag)]),
             *schema
         );
         assert_eq!(
@@ -661,8 +664,8 @@ mod tests {
         assert_eq!(4, schema.len());
         assert_eq!(
             column_schemas_with(vec![
-                ("instance", ColumnDataType::String, SemanticType::Tag),
-                ("idc", ColumnDataType::String, SemanticType::Tag)
+                ("instance", string_column_datatype(), SemanticType::Tag),
+                ("idc", string_column_datatype(), SemanticType::Tag)
             ]),
             *schema
         );
@@ -681,8 +684,8 @@ mod tests {
         assert_eq!(4, schema.len());
         assert_eq!(
             column_schemas_with(vec![
-                ("idc", ColumnDataType::String, SemanticType::Tag),
-                ("app", ColumnDataType::String, SemanticType::Tag)
+                ("idc", string_column_datatype(), SemanticType::Tag),
+                ("app", string_column_datatype(), SemanticType::Tag)
             ]),
             *schema
         );

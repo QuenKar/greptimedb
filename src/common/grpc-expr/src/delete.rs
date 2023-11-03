@@ -68,8 +68,8 @@ pub fn to_table_delete_request(
 mod tests {
     use std::sync::Arc;
 
+    use api::helper::{int32_column_datatype, string_column_datatype};
     use api::v1::column::Values;
-    use api::v1::ColumnDataType;
     use datatypes::prelude::{ScalarVector, VectorRef};
     use datatypes::vectors::{Int32Vector, StringVector};
 
@@ -86,7 +86,7 @@ mod tests {
                         i32_values: vec![1, 2, 3],
                         ..Default::default()
                     }),
-                    datatype: ColumnDataType::Int32 as i32,
+                    datatype: Some(int32_column_datatype()),
                     ..Default::default()
                 },
                 Column {
@@ -95,7 +95,7 @@ mod tests {
                         string_values: vec!["a".to_string(), "b".to_string(), "c".to_string()],
                         ..Default::default()
                     }),
-                    datatype: ColumnDataType::String as i32,
+                    datatype: Some(string_column_datatype()),
                     ..Default::default()
                 },
             ],

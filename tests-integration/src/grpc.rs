@@ -16,15 +16,19 @@
 mod test {
     use std::collections::HashMap;
 
+    use api::helper::{
+        float64_column_datatype, int32_column_datatype, string_column_datatype,
+        timestamp_millisecond_column_datatype,
+    };
     use api::v1::column::Values;
     use api::v1::ddl_request::Expr as DdlExpr;
     use api::v1::greptime_request::Request;
     use api::v1::query_request::Query;
     use api::v1::region::QueryRequest as RegionQueryRequest;
     use api::v1::{
-        alter_expr, AddColumn, AddColumns, AlterExpr, Column, ColumnDataType, ColumnDef,
-        CreateDatabaseExpr, CreateTableExpr, DdlRequest, DeleteRequest, DeleteRequests,
-        DropTableExpr, InsertRequest, InsertRequests, QueryRequest, SemanticType,
+        alter_expr, AddColumn, AddColumns, AlterExpr, Column, ColumnDef, CreateDatabaseExpr,
+        CreateTableExpr, DdlRequest, DeleteRequest, DeleteRequests, DropTableExpr, InsertRequest,
+        InsertRequests, QueryRequest, SemanticType,
     };
     use common_catalog::consts::MITO_ENGINE;
     use common_meta::rpc::router::region_distribution;
@@ -87,7 +91,7 @@ mod test {
                 column_defs: vec![
                     ColumnDef {
                         name: "a".to_string(),
-                        data_type: ColumnDataType::String as _,
+                        data_type: Some(string_column_datatype()),
                         is_nullable: true,
                         default_constraint: vec![],
                         semantic_type: SemanticType::Field as i32,
@@ -95,7 +99,7 @@ mod test {
                     },
                     ColumnDef {
                         name: "ts".to_string(),
-                        data_type: ColumnDataType::TimestampMillisecond as _,
+                        data_type: Some(timestamp_millisecond_column_datatype()),
                         is_nullable: false,
                         default_constraint: vec![],
                         semantic_type: SemanticType::Timestamp as i32,
@@ -119,7 +123,7 @@ mod test {
                     add_columns: vec![AddColumn {
                         column_def: Some(ColumnDef {
                             name: "b".to_string(),
-                            data_type: ColumnDataType::Int32 as _,
+                            data_type: Some(int32_column_datatype()),
                             is_nullable: true,
                             default_constraint: vec![],
                             semantic_type: SemanticType::Field as i32,
@@ -339,7 +343,7 @@ CREATE TABLE {table_name} (
                     }),
                     null_mask: vec![32, 0],
                     semantic_type: SemanticType::Tag as i32,
-                    datatype: ColumnDataType::Int32 as i32,
+                    datatype: Some(int32_column_datatype()),
                 },
                 Column {
                     column_name: "b".to_string(),
@@ -351,7 +355,7 @@ CREATE TABLE {table_name} (
                         ..Default::default()
                     }),
                     semantic_type: SemanticType::Tag as i32,
-                    datatype: ColumnDataType::String as i32,
+                    datatype: Some(string_column_datatype()),
                     ..Default::default()
                 },
                 Column {
@@ -361,7 +365,7 @@ CREATE TABLE {table_name} (
                         ..Default::default()
                     }),
                     semantic_type: SemanticType::Timestamp as i32,
-                    datatype: ColumnDataType::TimestampMillisecond as i32,
+                    datatype: Some(timestamp_millisecond_column_datatype()),
                     ..Default::default()
                 },
             ],
@@ -419,7 +423,7 @@ CREATE TABLE {table_name} (
                         i32_values: a,
                         ..Default::default()
                     }),
-                    datatype: ColumnDataType::Int32 as i32,
+                    datatype: Some(int32_column_datatype()),
                     ..Default::default()
                 },
                 Column {
@@ -429,7 +433,7 @@ CREATE TABLE {table_name} (
                         string_values: b,
                         ..Default::default()
                     }),
-                    datatype: ColumnDataType::String as i32,
+                    datatype: Some(string_column_datatype()),
                     ..Default::default()
                 },
                 Column {
@@ -439,7 +443,7 @@ CREATE TABLE {table_name} (
                         timestamp_millisecond_values: ts,
                         ..Default::default()
                     }),
-                    datatype: ColumnDataType::TimestampMillisecond as i32,
+                    datatype: Some(timestamp_millisecond_column_datatype()),
                     ..Default::default()
                 },
             ],
@@ -572,7 +576,7 @@ CREATE TABLE {table_name} (
                     }),
                     null_mask: vec![2],
                     semantic_type: SemanticType::Field as i32,
-                    datatype: ColumnDataType::Int32 as i32,
+                    datatype: Some(int32_column_datatype()),
                 },
                 Column {
                     column_name: "ts".to_string(),
@@ -585,7 +589,7 @@ CREATE TABLE {table_name} (
                         ..Default::default()
                     }),
                     semantic_type: SemanticType::Timestamp as i32,
-                    datatype: ColumnDataType::TimestampMillisecond as i32,
+                    datatype: Some(timestamp_millisecond_column_datatype()),
                     ..Default::default()
                 },
             ],
@@ -610,7 +614,7 @@ CREATE TABLE {table_name} (
                     }),
                     null_mask: vec![2],
                     semantic_type: SemanticType::Field as i32,
-                    datatype: ColumnDataType::String as i32,
+                    datatype: Some(string_column_datatype()),
                 },
                 Column {
                     column_name: "ts".to_string(),
@@ -623,7 +627,7 @@ CREATE TABLE {table_name} (
                         ..Default::default()
                     }),
                     semantic_type: SemanticType::Timestamp as i32,
-                    datatype: ColumnDataType::TimestampMillisecond as i32,
+                    datatype: Some(timestamp_millisecond_column_datatype()),
                     ..Default::default()
                 },
             ],
@@ -669,7 +673,7 @@ CREATE TABLE {table_name} (
                     ..Default::default()
                 }),
                 semantic_type: SemanticType::Timestamp as i32,
-                datatype: ColumnDataType::TimestampMillisecond as i32,
+                datatype: Some(timestamp_millisecond_column_datatype()),
                 ..Default::default()
             }],
             row_count: 2,
@@ -731,7 +735,7 @@ CREATE TABLE {table_name} (
                         ..Default::default()
                     }),
                     semantic_type: SemanticType::Tag as i32,
-                    datatype: ColumnDataType::String as i32,
+                    datatype: Some(string_column_datatype()),
                     ..Default::default()
                 },
                 Column {
@@ -742,7 +746,7 @@ CREATE TABLE {table_name} (
                     }),
                     null_mask: vec![4],
                     semantic_type: SemanticType::Field as i32,
-                    datatype: ColumnDataType::Float64 as i32,
+                    datatype: Some(float64_column_datatype()),
                 },
                 Column {
                     column_name: "ts".to_string(),
@@ -760,7 +764,7 @@ CREATE TABLE {table_name} (
                         ..Default::default()
                     }),
                     semantic_type: SemanticType::Timestamp as i32,
-                    datatype: ColumnDataType::TimestampMillisecond as i32,
+                    datatype: Some(timestamp_millisecond_column_datatype()),
                     ..Default::default()
                 },
             ],

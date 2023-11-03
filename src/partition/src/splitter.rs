@@ -130,8 +130,9 @@ mod tests {
     use std::any::Any;
     use std::sync::Arc;
 
+    use api::helper::{string_column_datatype, uint32_column_datatype};
     use api::v1::value::ValueData;
-    use api::v1::{ColumnDataType, SemanticType};
+    use api::v1::SemanticType;
     use serde::{Deserialize, Serialize};
 
     use super::*;
@@ -142,17 +143,17 @@ mod tests {
         let schema = vec![
             ColumnSchema {
                 column_name: "id".to_string(),
-                datatype: ColumnDataType::String as i32,
+                datatype: Some(string_column_datatype()),
                 semantic_type: SemanticType::Tag as i32,
             },
             ColumnSchema {
                 column_name: "name".to_string(),
-                datatype: ColumnDataType::String as i32,
+                datatype: Some(string_column_datatype()),
                 semantic_type: SemanticType::Tag as i32,
             },
             ColumnSchema {
                 column_name: "age".to_string(),
-                datatype: ColumnDataType::Uint32 as i32,
+                datatype: Some(uint32_column_datatype()),
                 semantic_type: SemanticType::Field as i32,
             },
         ];

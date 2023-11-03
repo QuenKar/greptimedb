@@ -12,6 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use api::helper::{
+    float32_column_datatype, int32_column_datatype, string_column_datatype,
+    timestamp_millisecond_column_datatype,
+};
 use api::v1::*;
 use client::{Client, Database, DEFAULT_SCHEMA_NAME};
 use derive_new::new;
@@ -135,7 +139,7 @@ fn to_insert_request(records: Vec<WeatherRecord>) -> InsertRequest {
                 ..Default::default()
             }),
             semantic_type: SemanticType::Timestamp as i32,
-            datatype: ColumnDataType::TimestampMillisecond as i32,
+            datatype: Some(timestamp_millisecond_column_datatype()),
             ..Default::default()
         },
         // tag column: collectors
@@ -146,7 +150,7 @@ fn to_insert_request(records: Vec<WeatherRecord>) -> InsertRequest {
                 ..Default::default()
             }),
             semantic_type: SemanticType::Tag as i32,
-            datatype: ColumnDataType::String as i32,
+            datatype: Some(string_column_datatype()),
             ..Default::default()
         },
         // field column: temperature
@@ -157,7 +161,7 @@ fn to_insert_request(records: Vec<WeatherRecord>) -> InsertRequest {
                 ..Default::default()
             }),
             semantic_type: SemanticType::Field as i32,
-            datatype: ColumnDataType::Float32 as i32,
+            datatype: Some(float32_column_datatype()),
             ..Default::default()
         },
         // field column: humidity
@@ -168,7 +172,7 @@ fn to_insert_request(records: Vec<WeatherRecord>) -> InsertRequest {
                 ..Default::default()
             }),
             semantic_type: SemanticType::Field as i32,
-            datatype: ColumnDataType::Int32 as i32,
+            datatype: Some(int32_column_datatype()),
             ..Default::default()
         },
     ];

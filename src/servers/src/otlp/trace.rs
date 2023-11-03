@@ -14,6 +14,7 @@
 
 use std::collections::HashMap;
 
+use api::helper::{string_column_datatype, timestamp_nanosecond_column_datatype};
 use api::v1::value::ValueData;
 use api::v1::{ColumnDataType, RowInsertRequests};
 use common_grpc::writer::Precision;
@@ -152,7 +153,7 @@ pub fn write_span_to_row(writer: &mut TableData, span: TraceSpan) -> Result<()> 
         .map(|(col, val)| {
             (
                 col.into(),
-                ColumnDataType::String,
+                string_column_datatype(),
                 ValueData::StringValue(val),
             )
         });
@@ -165,7 +166,7 @@ pub fn write_span_to_row(writer: &mut TableData, span: TraceSpan) -> Result<()> 
         .map(|(col, val)| {
             (
                 col.into(),
-                ColumnDataType::TimestampNanosecond,
+                timestamp_nanosecond_column_datatype(),
                 ValueData::TimestampNanosecondValue(val as i64),
             )
         });

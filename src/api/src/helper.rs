@@ -27,36 +27,39 @@ use datatypes::types::{
 };
 use datatypes::value::{OrderedF32, OrderedF64, Value};
 use datatypes::vectors::{
-    BinaryVector, BooleanVector, DateTimeVector, DateVector, DurationMicrosecondVector,
-    DurationMillisecondVector, DurationNanosecondVector, DurationSecondVector, Float32Vector,
-    Float64Vector, Int32Vector, Int64Vector, IntervalDayTimeVector, IntervalMonthDayNanoVector,
-    IntervalYearMonthVector, PrimitiveVector, StringVector, TimeMicrosecondVector,
-    TimeMillisecondVector, TimeNanosecondVector, TimeSecondVector, TimestampMicrosecondVector,
-    TimestampMillisecondVector, TimestampNanosecondVector, TimestampSecondVector, UInt32Vector,
-    UInt64Vector, VectorRef,
+    BinaryVector, BooleanVector, DateTimeVector, DateVector, Decimal128Vector,
+    DurationMicrosecondVector, DurationMillisecondVector, DurationNanosecondVector,
+    DurationSecondVector, Float32Vector, Float64Vector, Int32Vector, Int64Vector,
+    IntervalDayTimeVector, IntervalMonthDayNanoVector, IntervalYearMonthVector, PrimitiveVector,
+    StringVector, TimeMicrosecondVector, TimeMillisecondVector, TimeNanosecondVector,
+    TimeSecondVector, TimestampMicrosecondVector, TimestampMillisecondVector,
+    TimestampNanosecondVector, TimestampSecondVector, UInt32Vector, UInt64Vector, VectorRef,
 };
 use greptime_proto::v1::ddl_request::Expr;
 use greptime_proto::v1::greptime_request::Request;
 use greptime_proto::v1::query_request::Query;
 use greptime_proto::v1::value::ValueData;
 use greptime_proto::v1::{
-    self, DdlRequest, Decimal128 as PbDecimal128, IntervalMonthDayNano, QueryRequest, Row,
-    SemanticType,
+    self, DdlRequest, Decimal128 as PbDecimal128, DecimalTypeExtension, IntervalMonthDayNano,
+    QueryRequest, Row, SemanticType,
 };
+use paste::paste;
 use snafu::prelude::*;
 
 use crate::error::{self, Result};
 use crate::v1::column::Values;
 use crate::v1::{Column, ColumnDataType, Value as GrpcValue};
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq)]
 pub struct ColumnDataTypeWrapper(ColumnDataType);
 
 impl ColumnDataTypeWrapper {
-    pub fn try_new(datatype: i32) -> Result<Self> {
-        let datatype = ColumnDataType::try_from(datatype)
-            .context(error::UnknownColumnDataTypeSnafu { datatype })?;
-        Ok(Self(datatype))
+    pub fn try_new(column_datatype: Option<ColumnDataType>) -> Result<Self> {
+        if let Some(datatype) = column_datatype {
+            Ok(Self(datatype))
+        } else {
+            error::ColumnDataTypeNotFoundSnafu.fail()
+        }
     }
 
     pub fn new(datatype: ColumnDataType) -> Self {
@@ -64,57 +67,129 @@ impl ColumnDataTypeWrapper {
     }
 
     pub fn datatype(&self) -> ColumnDataType {
-        self.0
+        self.0.clone()
     }
 }
 
+macro_rules! impl_new_column_type_functions {
+    ($($Type: ident), +) => {
+        paste! {
+            $(
+                pub fn [<$Type:lower _column_datatype>]() -> ColumnDataType {
+                    ColumnDataType{ data_type: v1::DataType::$Type.into(), type_extension: None }
+                }
+            )+
+        }
+    }
+}
+
+impl_new_column_type_functions!(
+    Boolean, Uint8, Uint16, Uint32, Uint64, Int8, Int16, Int32, Int64, Float32, Float64, Binary,
+    Date, Datetime, String
+);
+
+macro_rules! impl_column_type_functions_with_function_name {
+    ($Function_Name:ident, $Type: ident) => {
+        paste! {
+            pub fn [<$Function_Name _column_datatype>]() -> ColumnDataType {
+                ColumnDataType{ data_type: v1::DataType::$Type.into(), type_extension: None }
+            }
+        }
+    };
+}
+
+impl_column_type_functions_with_function_name!(time_second, TimeSecond);
+impl_column_type_functions_with_function_name!(time_millisecond, TimeMillisecond);
+impl_column_type_functions_with_function_name!(time_microsecond, TimeMicrosecond);
+impl_column_type_functions_with_function_name!(time_nanosecond, TimeNanosecond);
+impl_column_type_functions_with_function_name!(timestamp_second, TimestampSecond);
+impl_column_type_functions_with_function_name!(timestamp_millisecond, TimestampMillisecond);
+impl_column_type_functions_with_function_name!(timestamp_microsecond, TimestampMicrosecond);
+impl_column_type_functions_with_function_name!(timestamp_nanosecond, TimestampNanosecond);
+impl_column_type_functions_with_function_name!(interval_year_month, IntervalYearMonth);
+impl_column_type_functions_with_function_name!(interval_day_time, IntervalDayTime);
+impl_column_type_functions_with_function_name!(interval_month_day_nano, IntervalMonthDayNano);
+impl_column_type_functions_with_function_name!(duration_second, DurationSecond);
+impl_column_type_functions_with_function_name!(duration_millisecond, DurationMillisecond);
+impl_column_type_functions_with_function_name!(duration_microsecond, DurationMicrosecond);
+impl_column_type_functions_with_function_name!(duration_nanosecond, DurationNanosecond);
+
 impl From<ColumnDataTypeWrapper> for ConcreteDataType {
     fn from(datatype: ColumnDataTypeWrapper) -> Self {
-        match datatype.0 {
-            ColumnDataType::Boolean => ConcreteDataType::boolean_datatype(),
-            ColumnDataType::Int8 => ConcreteDataType::int8_datatype(),
-            ColumnDataType::Int16 => ConcreteDataType::int16_datatype(),
-            ColumnDataType::Int32 => ConcreteDataType::int32_datatype(),
-            ColumnDataType::Int64 => ConcreteDataType::int64_datatype(),
-            ColumnDataType::Uint8 => ConcreteDataType::uint8_datatype(),
-            ColumnDataType::Uint16 => ConcreteDataType::uint16_datatype(),
-            ColumnDataType::Uint32 => ConcreteDataType::uint32_datatype(),
-            ColumnDataType::Uint64 => ConcreteDataType::uint64_datatype(),
-            ColumnDataType::Float32 => ConcreteDataType::float32_datatype(),
-            ColumnDataType::Float64 => ConcreteDataType::float64_datatype(),
-            ColumnDataType::Binary => ConcreteDataType::binary_datatype(),
-            ColumnDataType::String => ConcreteDataType::string_datatype(),
-            ColumnDataType::Date => ConcreteDataType::date_datatype(),
-            ColumnDataType::Datetime => ConcreteDataType::datetime_datatype(),
-            ColumnDataType::TimestampSecond => ConcreteDataType::timestamp_second_datatype(),
-            ColumnDataType::TimestampMillisecond => {
+        let data_type = datatype.0.data_type();
+        match data_type {
+            v1::DataType::Boolean => ConcreteDataType::boolean_datatype(),
+            v1::DataType::Int8 => ConcreteDataType::int8_datatype(),
+            v1::DataType::Int16 => ConcreteDataType::int16_datatype(),
+            v1::DataType::Int32 => ConcreteDataType::int32_datatype(),
+            v1::DataType::Int64 => ConcreteDataType::int64_datatype(),
+            v1::DataType::Uint8 => ConcreteDataType::uint8_datatype(),
+            v1::DataType::Uint16 => ConcreteDataType::uint16_datatype(),
+            v1::DataType::Uint32 => ConcreteDataType::uint32_datatype(),
+            v1::DataType::Uint64 => ConcreteDataType::uint64_datatype(),
+            v1::DataType::Float32 => ConcreteDataType::float32_datatype(),
+            v1::DataType::Float64 => ConcreteDataType::float64_datatype(),
+            v1::DataType::Binary => ConcreteDataType::binary_datatype(),
+            v1::DataType::String => ConcreteDataType::string_datatype(),
+            v1::DataType::Date => ConcreteDataType::date_datatype(),
+            v1::DataType::Datetime => ConcreteDataType::datetime_datatype(),
+            v1::DataType::TimestampSecond => ConcreteDataType::timestamp_second_datatype(),
+            v1::DataType::TimestampMillisecond => {
                 ConcreteDataType::timestamp_millisecond_datatype()
             }
-            ColumnDataType::TimestampMicrosecond => {
+            v1::DataType::TimestampMicrosecond => {
                 ConcreteDataType::timestamp_microsecond_datatype()
             }
-            ColumnDataType::TimestampNanosecond => {
-                ConcreteDataType::timestamp_nanosecond_datatype()
-            }
-            ColumnDataType::TimeSecond => ConcreteDataType::time_second_datatype(),
-            ColumnDataType::TimeMillisecond => ConcreteDataType::time_millisecond_datatype(),
-            ColumnDataType::TimeMicrosecond => ConcreteDataType::time_microsecond_datatype(),
-            ColumnDataType::TimeNanosecond => ConcreteDataType::time_nanosecond_datatype(),
-            ColumnDataType::IntervalYearMonth => ConcreteDataType::interval_year_month_datatype(),
-            ColumnDataType::IntervalDayTime => ConcreteDataType::interval_day_time_datatype(),
-            ColumnDataType::IntervalMonthDayNano => {
+            v1::DataType::TimestampNanosecond => ConcreteDataType::timestamp_nanosecond_datatype(),
+            v1::DataType::TimeSecond => ConcreteDataType::time_second_datatype(),
+            v1::DataType::TimeMillisecond => ConcreteDataType::time_millisecond_datatype(),
+            v1::DataType::TimeMicrosecond => ConcreteDataType::time_microsecond_datatype(),
+            v1::DataType::TimeNanosecond => ConcreteDataType::time_nanosecond_datatype(),
+            v1::DataType::IntervalYearMonth => ConcreteDataType::interval_year_month_datatype(),
+            v1::DataType::IntervalDayTime => ConcreteDataType::interval_day_time_datatype(),
+            v1::DataType::IntervalMonthDayNano => {
                 ConcreteDataType::interval_month_day_nano_datatype()
             }
-            ColumnDataType::DurationSecond => ConcreteDataType::duration_second_datatype(),
-            ColumnDataType::DurationMillisecond => {
-                ConcreteDataType::duration_millisecond_datatype()
+            v1::DataType::DurationSecond => ConcreteDataType::duration_second_datatype(),
+            v1::DataType::DurationMillisecond => ConcreteDataType::duration_millisecond_datatype(),
+            v1::DataType::DurationMicrosecond => ConcreteDataType::duration_microsecond_datatype(),
+            v1::DataType::DurationNanosecond => ConcreteDataType::duration_nanosecond_datatype(),
+            v1::DataType::Decimal128 => {
+                if let Some(type_extension) = datatype.0.type_extension {
+                    match type_extension {
+                        v1::column_data_type::TypeExtension::DecimalTypeExtension(d) => {
+                            ConcreteDataType::decimal128_datatype(d.precision as u8, d.scale as i8)
+                        }
+                    }
+                } else {
+                    ConcreteDataType::default_decimal128_datatype()
+                }
             }
-            ColumnDataType::DurationMicrosecond => {
-                ConcreteDataType::duration_microsecond_datatype()
-            }
-            ColumnDataType::DurationNanosecond => ConcreteDataType::duration_nanosecond_datatype(),
-            ColumnDataType::Decimal128 => ConcreteDataType::default_decimal128_datatype(),
         }
+    }
+}
+
+impl TryFrom<i32> for ColumnDataTypeWrapper {
+    type Error = error::Error;
+
+    fn try_from(value: i32) -> Result<Self> {
+        let datatype = v1::DataType::try_from(value)
+            .context(error::UnknownColumnDataTypeSnafu { datatype: value })?;
+        let datatype_wrapper = ColumnDataTypeWrapper(ColumnDataType {
+            data_type: datatype.into(),
+            type_extension: None,
+        });
+        Ok(datatype_wrapper)
+    }
+}
+
+pub fn decimal128_column_datatype(precision: i32, scale: i32) -> ColumnDataType {
+    let type_extension = DecimalTypeExtension { precision, scale };
+    ColumnDataType {
+        data_type: v1::DataType::Decimal128.into(),
+        type_extension: Some(v1::column_data_type::TypeExtension::DecimalTypeExtension(
+            type_extension,
+        )),
     }
 }
 
@@ -123,45 +198,47 @@ impl TryFrom<ConcreteDataType> for ColumnDataTypeWrapper {
 
     fn try_from(datatype: ConcreteDataType) -> Result<Self> {
         let datatype = ColumnDataTypeWrapper(match datatype {
-            ConcreteDataType::Boolean(_) => ColumnDataType::Boolean,
-            ConcreteDataType::Int8(_) => ColumnDataType::Int8,
-            ConcreteDataType::Int16(_) => ColumnDataType::Int16,
-            ConcreteDataType::Int32(_) => ColumnDataType::Int32,
-            ConcreteDataType::Int64(_) => ColumnDataType::Int64,
-            ConcreteDataType::UInt8(_) => ColumnDataType::Uint8,
-            ConcreteDataType::UInt16(_) => ColumnDataType::Uint16,
-            ConcreteDataType::UInt32(_) => ColumnDataType::Uint32,
-            ConcreteDataType::UInt64(_) => ColumnDataType::Uint64,
-            ConcreteDataType::Float32(_) => ColumnDataType::Float32,
-            ConcreteDataType::Float64(_) => ColumnDataType::Float64,
-            ConcreteDataType::Binary(_) => ColumnDataType::Binary,
-            ConcreteDataType::String(_) => ColumnDataType::String,
-            ConcreteDataType::Date(_) => ColumnDataType::Date,
-            ConcreteDataType::DateTime(_) => ColumnDataType::Datetime,
+            ConcreteDataType::Boolean(_) => boolean_column_datatype(),
+            ConcreteDataType::Int8(_) => int8_column_datatype(),
+            ConcreteDataType::Int16(_) => int16_column_datatype(),
+            ConcreteDataType::Int32(_) => int32_column_datatype(),
+            ConcreteDataType::Int64(_) => int64_column_datatype(),
+            ConcreteDataType::UInt8(_) => uint8_column_datatype(),
+            ConcreteDataType::UInt16(_) => uint16_column_datatype(),
+            ConcreteDataType::UInt32(_) => uint32_column_datatype(),
+            ConcreteDataType::UInt64(_) => uint64_column_datatype(),
+            ConcreteDataType::Float32(_) => float32_column_datatype(),
+            ConcreteDataType::Float64(_) => float64_column_datatype(),
+            ConcreteDataType::Binary(_) => binary_column_datatype(),
+            ConcreteDataType::String(_) => string_column_datatype(),
+            ConcreteDataType::Date(_) => date_column_datatype(),
+            ConcreteDataType::DateTime(_) => datetime_column_datatype(),
             ConcreteDataType::Timestamp(t) => match t {
-                TimestampType::Second(_) => ColumnDataType::TimestampSecond,
-                TimestampType::Millisecond(_) => ColumnDataType::TimestampMillisecond,
-                TimestampType::Microsecond(_) => ColumnDataType::TimestampMicrosecond,
-                TimestampType::Nanosecond(_) => ColumnDataType::TimestampNanosecond,
+                TimestampType::Second(_) => timestamp_second_column_datatype(),
+                TimestampType::Millisecond(_) => timestamp_millisecond_column_datatype(),
+                TimestampType::Microsecond(_) => timestamp_microsecond_column_datatype(),
+                TimestampType::Nanosecond(_) => timestamp_nanosecond_column_datatype(),
             },
             ConcreteDataType::Time(t) => match t {
-                TimeType::Second(_) => ColumnDataType::TimeSecond,
-                TimeType::Millisecond(_) => ColumnDataType::TimeMillisecond,
-                TimeType::Microsecond(_) => ColumnDataType::TimeMicrosecond,
-                TimeType::Nanosecond(_) => ColumnDataType::TimeNanosecond,
+                TimeType::Second(_) => time_second_column_datatype(),
+                TimeType::Millisecond(_) => time_millisecond_column_datatype(),
+                TimeType::Microsecond(_) => time_microsecond_column_datatype(),
+                TimeType::Nanosecond(_) => time_nanosecond_column_datatype(),
             },
             ConcreteDataType::Interval(i) => match i {
-                IntervalType::YearMonth(_) => ColumnDataType::IntervalYearMonth,
-                IntervalType::DayTime(_) => ColumnDataType::IntervalDayTime,
-                IntervalType::MonthDayNano(_) => ColumnDataType::IntervalMonthDayNano,
+                IntervalType::YearMonth(_) => interval_year_month_column_datatype(),
+                IntervalType::DayTime(_) => interval_day_time_column_datatype(),
+                IntervalType::MonthDayNano(_) => interval_month_day_nano_column_datatype(),
             },
             ConcreteDataType::Duration(d) => match d {
-                DurationType::Second(_) => ColumnDataType::DurationSecond,
-                DurationType::Millisecond(_) => ColumnDataType::DurationMillisecond,
-                DurationType::Microsecond(_) => ColumnDataType::DurationMicrosecond,
-                DurationType::Nanosecond(_) => ColumnDataType::DurationNanosecond,
+                DurationType::Second(_) => duration_second_column_datatype(),
+                DurationType::Millisecond(_) => duration_millisecond_column_datatype(),
+                DurationType::Microsecond(_) => duration_microsecond_column_datatype(),
+                DurationType::Nanosecond(_) => duration_nanosecond_column_datatype(),
             },
-            ConcreteDataType::Decimal128(_) => ColumnDataType::Decimal128,
+            ConcreteDataType::Decimal128(d) => {
+                decimal128_column_datatype(d.precision() as i32, d.scale() as i32)
+            }
             ConcreteDataType::Null(_)
             | ConcreteDataType::List(_)
             | ConcreteDataType::Dictionary(_) => {
@@ -173,128 +250,128 @@ impl TryFrom<ConcreteDataType> for ColumnDataTypeWrapper {
 }
 
 pub fn values_with_capacity(datatype: ColumnDataType, capacity: usize) -> Values {
-    match datatype {
-        ColumnDataType::Boolean => Values {
+    match datatype.data_type() {
+        v1::DataType::Boolean => Values {
             bool_values: Vec::with_capacity(capacity),
             ..Default::default()
         },
-        ColumnDataType::Int8 => Values {
+        v1::DataType::Int8 => Values {
             i8_values: Vec::with_capacity(capacity),
             ..Default::default()
         },
-        ColumnDataType::Int16 => Values {
+        v1::DataType::Int16 => Values {
             i16_values: Vec::with_capacity(capacity),
             ..Default::default()
         },
-        ColumnDataType::Int32 => Values {
+        v1::DataType::Int32 => Values {
             i32_values: Vec::with_capacity(capacity),
             ..Default::default()
         },
-        ColumnDataType::Int64 => Values {
+        v1::DataType::Int64 => Values {
             i64_values: Vec::with_capacity(capacity),
             ..Default::default()
         },
-        ColumnDataType::Uint8 => Values {
+        v1::DataType::Uint8 => Values {
             u8_values: Vec::with_capacity(capacity),
             ..Default::default()
         },
-        ColumnDataType::Uint16 => Values {
+        v1::DataType::Uint16 => Values {
             u16_values: Vec::with_capacity(capacity),
             ..Default::default()
         },
-        ColumnDataType::Uint32 => Values {
+        v1::DataType::Uint32 => Values {
             u32_values: Vec::with_capacity(capacity),
             ..Default::default()
         },
-        ColumnDataType::Uint64 => Values {
+        v1::DataType::Uint64 => Values {
             u64_values: Vec::with_capacity(capacity),
             ..Default::default()
         },
-        ColumnDataType::Float32 => Values {
+        v1::DataType::Float32 => Values {
             f32_values: Vec::with_capacity(capacity),
             ..Default::default()
         },
-        ColumnDataType::Float64 => Values {
+        v1::DataType::Float64 => Values {
             f64_values: Vec::with_capacity(capacity),
             ..Default::default()
         },
-        ColumnDataType::Binary => Values {
+        v1::DataType::Binary => Values {
             binary_values: Vec::with_capacity(capacity),
             ..Default::default()
         },
-        ColumnDataType::String => Values {
+        v1::DataType::String => Values {
             string_values: Vec::with_capacity(capacity),
             ..Default::default()
         },
-        ColumnDataType::Date => Values {
+        v1::DataType::Date => Values {
             date_values: Vec::with_capacity(capacity),
             ..Default::default()
         },
-        ColumnDataType::Datetime => Values {
+        v1::DataType::Datetime => Values {
             datetime_values: Vec::with_capacity(capacity),
             ..Default::default()
         },
-        ColumnDataType::TimestampSecond => Values {
+        v1::DataType::TimestampSecond => Values {
             timestamp_second_values: Vec::with_capacity(capacity),
             ..Default::default()
         },
-        ColumnDataType::TimestampMillisecond => Values {
+        v1::DataType::TimestampMillisecond => Values {
             timestamp_millisecond_values: Vec::with_capacity(capacity),
             ..Default::default()
         },
-        ColumnDataType::TimestampMicrosecond => Values {
+        v1::DataType::TimestampMicrosecond => Values {
             timestamp_microsecond_values: Vec::with_capacity(capacity),
             ..Default::default()
         },
-        ColumnDataType::TimestampNanosecond => Values {
+        v1::DataType::TimestampNanosecond => Values {
             timestamp_nanosecond_values: Vec::with_capacity(capacity),
             ..Default::default()
         },
-        ColumnDataType::TimeSecond => Values {
+        v1::DataType::TimeSecond => Values {
             time_second_values: Vec::with_capacity(capacity),
             ..Default::default()
         },
-        ColumnDataType::TimeMillisecond => Values {
+        v1::DataType::TimeMillisecond => Values {
             time_millisecond_values: Vec::with_capacity(capacity),
             ..Default::default()
         },
-        ColumnDataType::TimeMicrosecond => Values {
+        v1::DataType::TimeMicrosecond => Values {
             time_microsecond_values: Vec::with_capacity(capacity),
             ..Default::default()
         },
-        ColumnDataType::TimeNanosecond => Values {
+        v1::DataType::TimeNanosecond => Values {
             time_nanosecond_values: Vec::with_capacity(capacity),
             ..Default::default()
         },
-        ColumnDataType::IntervalDayTime => Values {
+        v1::DataType::IntervalDayTime => Values {
             interval_day_time_values: Vec::with_capacity(capacity),
             ..Default::default()
         },
-        ColumnDataType::IntervalYearMonth => Values {
+        v1::DataType::IntervalYearMonth => Values {
             interval_year_month_values: Vec::with_capacity(capacity),
             ..Default::default()
         },
-        ColumnDataType::IntervalMonthDayNano => Values {
+        v1::DataType::IntervalMonthDayNano => Values {
             interval_month_day_nano_values: Vec::with_capacity(capacity),
             ..Default::default()
         },
-        ColumnDataType::DurationSecond => Values {
+        v1::DataType::DurationSecond => Values {
             duration_second_values: Vec::with_capacity(capacity),
             ..Default::default()
         },
-        ColumnDataType::DurationMillisecond => Values {
+        v1::DataType::DurationMillisecond => Values {
             duration_millisecond_values: Vec::with_capacity(capacity),
             ..Default::default()
         },
-        ColumnDataType::DurationMicrosecond => Values {
+        v1::DataType::DurationMicrosecond => Values {
             duration_microsecond_values: Vec::with_capacity(capacity),
             ..Default::default()
         },
-        ColumnDataType::DurationNanosecond => Values {
+        v1::DataType::DurationNanosecond => Values {
             duration_nanosecond_values: Vec::with_capacity(capacity),
             ..Default::default()
         },
-        ColumnDataType::Decimal128 => Values {
+        v1::DataType::Decimal128 => Values {
             decimal_values: Vec::with_capacity(capacity),
             ..Default::default()
         },
@@ -351,7 +428,15 @@ pub fn push_vals(column: &mut Column, origin_count: usize, vector: VectorRef) {
             TimeUnit::Microsecond => values.duration_microsecond_values.push(val.value()),
             TimeUnit::Nanosecond => values.duration_nanosecond_values.push(val.value()),
         },
-        Value::List(_) | Value::Decimal128(_) => unreachable!(),
+        Value::Decimal128(val) => {
+            let (hi, lo, precision_and_scale) = val.to_pb_value();
+            values.decimal_values.push(PbDecimal128 {
+                hi,
+                lo,
+                precision_and_scale,
+            });
+        }
+        Value::List(_) => unreachable!(),
     });
     column.null_mask = null_mask.into_vec();
 }
@@ -446,7 +531,7 @@ pub fn pb_value_to_value_ref(value: &v1::Value) -> ValueRef {
         ValueData::DurationMillisecondValue(v) => ValueRef::Duration(Duration::new_millisecond(*v)),
         ValueData::DurationMicrosecondValue(v) => ValueRef::Duration(Duration::new_microsecond(*v)),
         ValueData::DurationNanosecondValue(v) => ValueRef::Duration(Duration::new_nanosecond(*v)),
-        ValueData::DecimalValue(v) => {
+        ValueData::Decimal128Value(v) => {
             let value = ((v.hi as i128) << 64) | v.lo as i128;
             let precision = (v.precision_and_scale >> 8) as u8;
             let scale = (v.precision_and_scale & 0xff) as i8;
@@ -538,10 +623,17 @@ pub fn pb_values_to_vector_ref(data_type: &ConcreteDataType, values: Values) -> 
                 values.duration_nanosecond_values,
             )),
         },
-        ConcreteDataType::Null(_)
-        | ConcreteDataType::List(_)
-        | ConcreteDataType::Dictionary(_)
-        | ConcreteDataType::Decimal128(_) => {
+        ConcreteDataType::Decimal128(v) => Arc::new(Decimal128Vector::from_vec(
+            values
+                .decimal_values
+                .into_iter()
+                .map(|x| {
+                    let value = ((x.hi as i128) << 64) | x.lo as i128;
+                    Decimal128::new(value, v.precision(), v.scale())
+                })
+                .collect(),
+        )),
+        ConcreteDataType::Null(_) | ConcreteDataType::List(_) | ConcreteDataType::Dictionary(_) => {
             unreachable!()
         }
     }
@@ -711,10 +803,15 @@ pub fn pb_values_to_values(data_type: &ConcreteDataType, values: Values) -> Vec<
             .into_iter()
             .map(|v| Value::Duration(Duration::new_nanosecond(v)))
             .collect(),
-        ConcreteDataType::Null(_)
-        | ConcreteDataType::List(_)
-        | ConcreteDataType::Dictionary(_)
-        | ConcreteDataType::Decimal128(_) => {
+        ConcreteDataType::Decimal128(d) => values
+            .decimal_values
+            .into_iter()
+            .map(|v| {
+                let value = ((v.hi as i128) << 64) | v.lo as i128;
+                Value::Decimal128(Decimal128::new(value, d.precision(), d.scale()))
+            })
+            .collect(),
+        ConcreteDataType::Null(_) | ConcreteDataType::List(_) | ConcreteDataType::Dictionary(_) => {
             unreachable!()
         }
     }
@@ -726,12 +823,15 @@ pub fn is_semantic_type_eq(type_value: i32, semantic_type: SemanticType) -> bool
 }
 
 /// Returns true if the pb type value is valid.
-pub fn is_column_type_value_eq(type_value: i32, expect_type: &ConcreteDataType) -> bool {
-    let Ok(column_type) = ColumnDataType::try_from(type_value) else {
-        return false;
-    };
-
-    is_column_type_eq(column_type, expect_type)
+pub fn is_column_type_value_eq(
+    type_value: Option<ColumnDataType>,
+    expect_type: &ConcreteDataType,
+) -> bool {
+    if let Some(column_type) = type_value {
+        is_column_type_eq(column_type, expect_type)
+    } else {
+        false
+    }
 }
 
 /// Convert value into proto's value.
@@ -838,7 +938,17 @@ pub fn to_proto_value(value: Value) -> Option<v1::Value> {
                 value_data: Some(ValueData::DurationNanosecondValue(v.value())),
             },
         },
-        Value::List(_) | Value::Decimal128(_) => return None,
+        Value::Decimal128(v) => {
+            let (hi, lo, precision_and_scale) = v.to_pb_value();
+            v1::Value {
+                value_data: Some(ValueData::Decimal128Value(PbDecimal128 {
+                    hi,
+                    lo,
+                    precision_and_scale,
+                })),
+            }
+        }
+        Value::List(_) => return None,
     };
 
     Some(proto_value)
@@ -849,37 +959,42 @@ pub fn to_proto_value(value: Value) -> Option<v1::Value> {
 /// If value is null, returns `None`.
 pub fn proto_value_type(value: &v1::Value) -> Option<ColumnDataType> {
     let value_type = match value.value_data.as_ref()? {
-        ValueData::I8Value(_) => ColumnDataType::Int8,
-        ValueData::I16Value(_) => ColumnDataType::Int16,
-        ValueData::I32Value(_) => ColumnDataType::Int32,
-        ValueData::I64Value(_) => ColumnDataType::Int64,
-        ValueData::U8Value(_) => ColumnDataType::Uint8,
-        ValueData::U16Value(_) => ColumnDataType::Uint16,
-        ValueData::U32Value(_) => ColumnDataType::Uint32,
-        ValueData::U64Value(_) => ColumnDataType::Uint64,
-        ValueData::F32Value(_) => ColumnDataType::Float32,
-        ValueData::F64Value(_) => ColumnDataType::Float64,
-        ValueData::BoolValue(_) => ColumnDataType::Boolean,
-        ValueData::BinaryValue(_) => ColumnDataType::Binary,
-        ValueData::StringValue(_) => ColumnDataType::String,
-        ValueData::DateValue(_) => ColumnDataType::Date,
-        ValueData::DatetimeValue(_) => ColumnDataType::Datetime,
-        ValueData::TimestampSecondValue(_) => ColumnDataType::TimestampSecond,
-        ValueData::TimestampMillisecondValue(_) => ColumnDataType::TimestampMillisecond,
-        ValueData::TimestampMicrosecondValue(_) => ColumnDataType::TimestampMicrosecond,
-        ValueData::TimestampNanosecondValue(_) => ColumnDataType::TimestampNanosecond,
-        ValueData::TimeSecondValue(_) => ColumnDataType::TimeSecond,
-        ValueData::TimeMillisecondValue(_) => ColumnDataType::TimeMillisecond,
-        ValueData::TimeMicrosecondValue(_) => ColumnDataType::TimeMicrosecond,
-        ValueData::TimeNanosecondValue(_) => ColumnDataType::TimeNanosecond,
-        ValueData::IntervalYearMonthValues(_) => ColumnDataType::IntervalYearMonth,
-        ValueData::IntervalDayTimeValues(_) => ColumnDataType::IntervalDayTime,
-        ValueData::IntervalMonthDayNanoValues(_) => ColumnDataType::IntervalMonthDayNano,
-        ValueData::DurationSecondValue(_) => ColumnDataType::DurationSecond,
-        ValueData::DurationMillisecondValue(_) => ColumnDataType::DurationMillisecond,
-        ValueData::DurationMicrosecondValue(_) => ColumnDataType::DurationMicrosecond,
-        ValueData::DurationNanosecondValue(_) => ColumnDataType::DurationNanosecond,
-        ValueData::DecimalValue(_) => ColumnDataType::Decimal128,
+        ValueData::I8Value(_) => int8_column_datatype(),
+        ValueData::I16Value(_) => int16_column_datatype(),
+        ValueData::I32Value(_) => int32_column_datatype(),
+        ValueData::I64Value(_) => int64_column_datatype(),
+        ValueData::U8Value(_) => uint8_column_datatype(),
+        ValueData::U16Value(_) => uint16_column_datatype(),
+        ValueData::U32Value(_) => uint32_column_datatype(),
+        ValueData::U64Value(_) => uint64_column_datatype(),
+        ValueData::F32Value(_) => float32_column_datatype(),
+        ValueData::F64Value(_) => float64_column_datatype(),
+        ValueData::BoolValue(_) => boolean_column_datatype(),
+        ValueData::BinaryValue(_) => binary_column_datatype(),
+        ValueData::StringValue(_) => string_column_datatype(),
+        ValueData::DateValue(_) => date_column_datatype(),
+        ValueData::DatetimeValue(_) => datetime_column_datatype(),
+        ValueData::TimestampSecondValue(_) => timestamp_second_column_datatype(),
+        ValueData::TimestampMillisecondValue(_) => timestamp_millisecond_column_datatype(),
+        ValueData::TimestampMicrosecondValue(_) => timestamp_microsecond_column_datatype(),
+        ValueData::TimestampNanosecondValue(_) => timestamp_nanosecond_column_datatype(),
+
+        ValueData::TimeSecondValue(_) => time_second_column_datatype(),
+        ValueData::TimeMillisecondValue(_) => time_millisecond_column_datatype(),
+        ValueData::TimeMicrosecondValue(_) => time_microsecond_column_datatype(),
+        ValueData::TimeNanosecondValue(_) => time_nanosecond_column_datatype(),
+        ValueData::IntervalYearMonthValues(_) => interval_year_month_column_datatype(),
+        ValueData::IntervalDayTimeValues(_) => interval_day_time_column_datatype(),
+        ValueData::IntervalMonthDayNanoValues(_) => interval_month_day_nano_column_datatype(),
+        ValueData::DurationSecondValue(_) => duration_second_column_datatype(),
+        ValueData::DurationMillisecondValue(_) => duration_millisecond_column_datatype(),
+        ValueData::DurationMicrosecondValue(_) => duration_microsecond_column_datatype(),
+        ValueData::DurationNanosecondValue(_) => duration_nanosecond_column_datatype(),
+        ValueData::Decimal128Value(v) => {
+            let precision = v.precision_and_scale >> 8;
+            let scale = v.precision_and_scale & 0xff;
+            decimal128_column_datatype(precision, scale)
+        }
     };
     Some(value_type)
 }
@@ -887,51 +1002,57 @@ pub fn proto_value_type(value: &v1::Value) -> Option<ColumnDataType> {
 /// Convert [ConcreteDataType] to [ColumnDataType].
 pub fn to_column_data_type(data_type: &ConcreteDataType) -> Option<ColumnDataType> {
     let column_data_type = match data_type {
-        ConcreteDataType::Boolean(_) => ColumnDataType::Boolean,
-        ConcreteDataType::Int8(_) => ColumnDataType::Int8,
-        ConcreteDataType::Int16(_) => ColumnDataType::Int16,
-        ConcreteDataType::Int32(_) => ColumnDataType::Int32,
-        ConcreteDataType::Int64(_) => ColumnDataType::Int64,
-        ConcreteDataType::UInt8(_) => ColumnDataType::Uint8,
-        ConcreteDataType::UInt16(_) => ColumnDataType::Uint16,
-        ConcreteDataType::UInt32(_) => ColumnDataType::Uint32,
-        ConcreteDataType::UInt64(_) => ColumnDataType::Uint64,
-        ConcreteDataType::Float32(_) => ColumnDataType::Float32,
-        ConcreteDataType::Float64(_) => ColumnDataType::Float64,
-        ConcreteDataType::Binary(_) => ColumnDataType::Binary,
-        ConcreteDataType::String(_) => ColumnDataType::String,
-        ConcreteDataType::Date(_) => ColumnDataType::Date,
-        ConcreteDataType::DateTime(_) => ColumnDataType::Datetime,
-        ConcreteDataType::Timestamp(TimestampType::Second(_)) => ColumnDataType::TimestampSecond,
+        ConcreteDataType::Boolean(_) => boolean_column_datatype(),
+        ConcreteDataType::Int8(_) => int8_column_datatype(),
+        ConcreteDataType::Int16(_) => int16_column_datatype(),
+        ConcreteDataType::Int32(_) => int32_column_datatype(),
+        ConcreteDataType::Int64(_) => int64_column_datatype(),
+        ConcreteDataType::UInt8(_) => uint8_column_datatype(),
+        ConcreteDataType::UInt16(_) => uint16_column_datatype(),
+        ConcreteDataType::UInt32(_) => uint32_column_datatype(),
+        ConcreteDataType::UInt64(_) => uint64_column_datatype(),
+        ConcreteDataType::Float32(_) => float32_column_datatype(),
+
+        ConcreteDataType::Float64(_) => float64_column_datatype(),
+        ConcreteDataType::Binary(_) => binary_column_datatype(),
+        ConcreteDataType::String(_) => string_column_datatype(),
+        ConcreteDataType::Date(_) => date_column_datatype(),
+        ConcreteDataType::DateTime(_) => datetime_column_datatype(),
+        ConcreteDataType::Timestamp(TimestampType::Second(_)) => timestamp_second_column_datatype(),
         ConcreteDataType::Timestamp(TimestampType::Millisecond(_)) => {
-            ColumnDataType::TimestampMillisecond
+            timestamp_millisecond_column_datatype()
         }
         ConcreteDataType::Timestamp(TimestampType::Microsecond(_)) => {
-            ColumnDataType::TimestampMicrosecond
+            timestamp_microsecond_column_datatype()
         }
         ConcreteDataType::Timestamp(TimestampType::Nanosecond(_)) => {
-            ColumnDataType::TimestampNanosecond
+            timestamp_nanosecond_column_datatype()
         }
-        ConcreteDataType::Time(TimeType::Second(_)) => ColumnDataType::TimeSecond,
-        ConcreteDataType::Time(TimeType::Millisecond(_)) => ColumnDataType::TimeMillisecond,
-        ConcreteDataType::Time(TimeType::Microsecond(_)) => ColumnDataType::TimeMicrosecond,
-        ConcreteDataType::Time(TimeType::Nanosecond(_)) => ColumnDataType::TimeNanosecond,
-        ConcreteDataType::Duration(DurationType::Second(_)) => ColumnDataType::DurationSecond,
+        ConcreteDataType::Time(TimeType::Second(_)) => time_second_column_datatype(),
+
+        ConcreteDataType::Time(TimeType::Millisecond(_)) => time_millisecond_column_datatype(),
+        ConcreteDataType::Time(TimeType::Microsecond(_)) => time_microsecond_column_datatype(),
+        ConcreteDataType::Time(TimeType::Nanosecond(_)) => time_nanosecond_column_datatype(),
+        ConcreteDataType::Duration(DurationType::Second(_)) => duration_second_column_datatype(),
         ConcreteDataType::Duration(DurationType::Millisecond(_)) => {
-            ColumnDataType::DurationMillisecond
+            duration_millisecond_column_datatype()
         }
         ConcreteDataType::Duration(DurationType::Microsecond(_)) => {
-            ColumnDataType::DurationMicrosecond
+            duration_microsecond_column_datatype()
         }
         ConcreteDataType::Duration(DurationType::Nanosecond(_)) => {
-            ColumnDataType::DurationNanosecond
+            duration_nanosecond_column_datatype()
         }
-        ConcreteDataType::Interval(IntervalType::YearMonth(_)) => ColumnDataType::IntervalYearMonth,
+        ConcreteDataType::Interval(IntervalType::YearMonth(_)) => {
+            interval_year_month_column_datatype()
+        }
         ConcreteDataType::Interval(IntervalType::MonthDayNano(_)) => {
-            ColumnDataType::IntervalMonthDayNano
+            interval_month_day_nano_column_datatype()
         }
-        ConcreteDataType::Interval(IntervalType::DayTime(_)) => ColumnDataType::IntervalDayTime,
-        ConcreteDataType::Decimal128(_) => ColumnDataType::Decimal128,
+        ConcreteDataType::Interval(IntervalType::DayTime(_)) => interval_day_time_column_datatype(),
+        ConcreteDataType::Decimal128(d) => {
+            decimal128_column_datatype(d.precision() as i32, d.scale() as i32)
+        }
         ConcreteDataType::Null(_) | ConcreteDataType::List(_) | ConcreteDataType::Dictionary(_) => {
             return None
         }
@@ -1000,7 +1121,7 @@ pub fn value_to_grpc_value(value: Value) -> GrpcValue {
             }),
             Value::Decimal128(v) => {
                 let (hi, lo, precision_and_scale) = v.to_pb_value();
-                Some(ValueData::DecimalValue(PbDecimal128 {
+                Some(ValueData::Decimal128Value(PbDecimal128 {
                     hi,
                     lo,
                     precision_and_scale,
@@ -1042,75 +1163,75 @@ mod tests {
 
     #[test]
     fn test_values_with_capacity() {
-        let values = values_with_capacity(ColumnDataType::Int8, 2);
+        let values = values_with_capacity(int8_column_datatype(), 2);
         let values = values.i8_values;
         assert_eq!(2, values.capacity());
 
-        let values = values_with_capacity(ColumnDataType::Int32, 2);
+        let values = values_with_capacity(int32_column_datatype(), 2);
         let values = values.i32_values;
         assert_eq!(2, values.capacity());
 
-        let values = values_with_capacity(ColumnDataType::Int64, 2);
+        let values = values_with_capacity(int64_column_datatype(), 2);
         let values = values.i64_values;
         assert_eq!(2, values.capacity());
 
-        let values = values_with_capacity(ColumnDataType::Uint8, 2);
+        let values = values_with_capacity(uint8_column_datatype(), 2);
         let values = values.u8_values;
         assert_eq!(2, values.capacity());
 
-        let values = values_with_capacity(ColumnDataType::Uint32, 2);
+        let values = values_with_capacity(uint32_column_datatype(), 2);
         let values = values.u32_values;
         assert_eq!(2, values.capacity());
 
-        let values = values_with_capacity(ColumnDataType::Uint64, 2);
+        let values = values_with_capacity(uint64_column_datatype(), 2);
         let values = values.u64_values;
         assert_eq!(2, values.capacity());
 
-        let values = values_with_capacity(ColumnDataType::Float32, 2);
+        let values = values_with_capacity(float32_column_datatype(), 2);
         let values = values.f32_values;
         assert_eq!(2, values.capacity());
 
-        let values = values_with_capacity(ColumnDataType::Float64, 2);
+        let values = values_with_capacity(float64_column_datatype(), 2);
         let values = values.f64_values;
         assert_eq!(2, values.capacity());
 
-        let values = values_with_capacity(ColumnDataType::Binary, 2);
+        let values = values_with_capacity(binary_column_datatype(), 2);
         let values = values.binary_values;
         assert_eq!(2, values.capacity());
 
-        let values = values_with_capacity(ColumnDataType::Boolean, 2);
+        let values = values_with_capacity(boolean_column_datatype(), 2);
         let values = values.bool_values;
         assert_eq!(2, values.capacity());
 
-        let values = values_with_capacity(ColumnDataType::String, 2);
+        let values = values_with_capacity(string_column_datatype(), 2);
         let values = values.string_values;
         assert_eq!(2, values.capacity());
 
-        let values = values_with_capacity(ColumnDataType::Date, 2);
+        let values = values_with_capacity(date_column_datatype(), 2);
         let values = values.date_values;
         assert_eq!(2, values.capacity());
 
-        let values = values_with_capacity(ColumnDataType::Datetime, 2);
+        let values = values_with_capacity(datetime_column_datatype(), 2);
         let values = values.datetime_values;
         assert_eq!(2, values.capacity());
 
-        let values = values_with_capacity(ColumnDataType::TimestampMillisecond, 2);
+        let values = values_with_capacity(timestamp_millisecond_column_datatype(), 2);
         let values = values.timestamp_millisecond_values;
         assert_eq!(2, values.capacity());
 
-        let values = values_with_capacity(ColumnDataType::TimeMillisecond, 2);
+        let values = values_with_capacity(time_millisecond_column_datatype(), 2);
         let values = values.time_millisecond_values;
         assert_eq!(2, values.capacity());
 
-        let values = values_with_capacity(ColumnDataType::IntervalDayTime, 2);
+        let values = values_with_capacity(interval_day_time_column_datatype(), 2);
         let values = values.interval_day_time_values;
         assert_eq!(2, values.capacity());
 
-        let values = values_with_capacity(ColumnDataType::IntervalMonthDayNano, 2);
+        let values = values_with_capacity(interval_month_day_nano_column_datatype(), 2);
         let values = values.interval_month_day_nano_values;
         assert_eq!(2, values.capacity());
 
-        let values = values_with_capacity(ColumnDataType::DurationMillisecond, 2);
+        let values = values_with_capacity(duration_millisecond_column_datatype(), 2);
         let values = values.duration_millisecond_values;
         assert_eq!(2, values.capacity());
     }
@@ -1119,178 +1240,178 @@ mod tests {
     fn test_concrete_datatype_from_column_datatype() {
         assert_eq!(
             ConcreteDataType::boolean_datatype(),
-            ColumnDataTypeWrapper(ColumnDataType::Boolean).into()
+            ColumnDataTypeWrapper(boolean_column_datatype()).into()
         );
         assert_eq!(
             ConcreteDataType::int8_datatype(),
-            ColumnDataTypeWrapper(ColumnDataType::Int8).into()
+            ColumnDataTypeWrapper(int8_column_datatype()).into()
         );
         assert_eq!(
             ConcreteDataType::int16_datatype(),
-            ColumnDataTypeWrapper(ColumnDataType::Int16).into()
+            ColumnDataTypeWrapper(int16_column_datatype()).into()
         );
         assert_eq!(
             ConcreteDataType::int32_datatype(),
-            ColumnDataTypeWrapper(ColumnDataType::Int32).into()
+            ColumnDataTypeWrapper(int32_column_datatype()).into()
         );
         assert_eq!(
             ConcreteDataType::int64_datatype(),
-            ColumnDataTypeWrapper(ColumnDataType::Int64).into()
+            ColumnDataTypeWrapper(int64_column_datatype()).into()
         );
         assert_eq!(
             ConcreteDataType::uint8_datatype(),
-            ColumnDataTypeWrapper(ColumnDataType::Uint8).into()
+            ColumnDataTypeWrapper(uint8_column_datatype()).into()
         );
         assert_eq!(
             ConcreteDataType::uint16_datatype(),
-            ColumnDataTypeWrapper(ColumnDataType::Uint16).into()
+            ColumnDataTypeWrapper(uint16_column_datatype()).into()
         );
         assert_eq!(
             ConcreteDataType::uint32_datatype(),
-            ColumnDataTypeWrapper(ColumnDataType::Uint32).into()
+            ColumnDataTypeWrapper(uint32_column_datatype()).into()
         );
         assert_eq!(
             ConcreteDataType::uint64_datatype(),
-            ColumnDataTypeWrapper(ColumnDataType::Uint64).into()
+            ColumnDataTypeWrapper(uint64_column_datatype()).into()
         );
         assert_eq!(
             ConcreteDataType::float32_datatype(),
-            ColumnDataTypeWrapper(ColumnDataType::Float32).into()
+            ColumnDataTypeWrapper(float32_column_datatype()).into()
         );
         assert_eq!(
             ConcreteDataType::float64_datatype(),
-            ColumnDataTypeWrapper(ColumnDataType::Float64).into()
+            ColumnDataTypeWrapper(float64_column_datatype()).into()
         );
         assert_eq!(
             ConcreteDataType::binary_datatype(),
-            ColumnDataTypeWrapper(ColumnDataType::Binary).into()
+            ColumnDataTypeWrapper(binary_column_datatype()).into()
         );
         assert_eq!(
             ConcreteDataType::string_datatype(),
-            ColumnDataTypeWrapper(ColumnDataType::String).into()
+            ColumnDataTypeWrapper(string_column_datatype()).into()
         );
         assert_eq!(
             ConcreteDataType::date_datatype(),
-            ColumnDataTypeWrapper(ColumnDataType::Date).into()
+            ColumnDataTypeWrapper(date_column_datatype()).into()
         );
         assert_eq!(
             ConcreteDataType::datetime_datatype(),
-            ColumnDataTypeWrapper(ColumnDataType::Datetime).into()
+            ColumnDataTypeWrapper(datetime_column_datatype()).into()
         );
         assert_eq!(
             ConcreteDataType::timestamp_millisecond_datatype(),
-            ColumnDataTypeWrapper(ColumnDataType::TimestampMillisecond).into()
+            ColumnDataTypeWrapper(timestamp_millisecond_column_datatype()).into()
         );
         assert_eq!(
             ConcreteDataType::time_datatype(TimeUnit::Millisecond),
-            ColumnDataTypeWrapper(ColumnDataType::TimeMillisecond).into()
+            ColumnDataTypeWrapper(time_millisecond_column_datatype()).into()
         );
         assert_eq!(
             ConcreteDataType::interval_datatype(IntervalUnit::DayTime),
-            ColumnDataTypeWrapper(ColumnDataType::IntervalDayTime).into()
+            ColumnDataTypeWrapper(interval_day_time_column_datatype()).into()
         );
         assert_eq!(
             ConcreteDataType::interval_datatype(IntervalUnit::YearMonth),
-            ColumnDataTypeWrapper(ColumnDataType::IntervalYearMonth).into()
+            ColumnDataTypeWrapper(interval_year_month_column_datatype()).into()
         );
         assert_eq!(
             ConcreteDataType::interval_datatype(IntervalUnit::MonthDayNano),
-            ColumnDataTypeWrapper(ColumnDataType::IntervalMonthDayNano).into()
+            ColumnDataTypeWrapper(interval_month_day_nano_column_datatype()).into()
         );
         assert_eq!(
             ConcreteDataType::duration_millisecond_datatype(),
-            ColumnDataTypeWrapper(ColumnDataType::DurationMillisecond).into()
+            ColumnDataTypeWrapper(duration_millisecond_column_datatype()).into()
         )
     }
 
     #[test]
     fn test_column_datatype_from_concrete_datatype() {
         assert_eq!(
-            ColumnDataTypeWrapper(ColumnDataType::Boolean),
+            ColumnDataTypeWrapper(boolean_column_datatype()),
             ConcreteDataType::boolean_datatype().try_into().unwrap()
         );
         assert_eq!(
-            ColumnDataTypeWrapper(ColumnDataType::Int8),
+            ColumnDataTypeWrapper(int8_column_datatype()),
             ConcreteDataType::int8_datatype().try_into().unwrap()
         );
         assert_eq!(
-            ColumnDataTypeWrapper(ColumnDataType::Int16),
+            ColumnDataTypeWrapper(int16_column_datatype()),
             ConcreteDataType::int16_datatype().try_into().unwrap()
         );
         assert_eq!(
-            ColumnDataTypeWrapper(ColumnDataType::Int32),
+            ColumnDataTypeWrapper(int32_column_datatype()),
             ConcreteDataType::int32_datatype().try_into().unwrap()
         );
         assert_eq!(
-            ColumnDataTypeWrapper(ColumnDataType::Int64),
+            ColumnDataTypeWrapper(int64_column_datatype()),
             ConcreteDataType::int64_datatype().try_into().unwrap()
         );
         assert_eq!(
-            ColumnDataTypeWrapper(ColumnDataType::Uint8),
+            ColumnDataTypeWrapper(uint8_column_datatype()),
             ConcreteDataType::uint8_datatype().try_into().unwrap()
         );
         assert_eq!(
-            ColumnDataTypeWrapper(ColumnDataType::Uint16),
+            ColumnDataTypeWrapper(uint16_column_datatype()),
             ConcreteDataType::uint16_datatype().try_into().unwrap()
         );
         assert_eq!(
-            ColumnDataTypeWrapper(ColumnDataType::Uint32),
+            ColumnDataTypeWrapper(uint32_column_datatype()),
             ConcreteDataType::uint32_datatype().try_into().unwrap()
         );
         assert_eq!(
-            ColumnDataTypeWrapper(ColumnDataType::Uint64),
+            ColumnDataTypeWrapper(uint64_column_datatype()),
             ConcreteDataType::uint64_datatype().try_into().unwrap()
         );
         assert_eq!(
-            ColumnDataTypeWrapper(ColumnDataType::Float32),
+            ColumnDataTypeWrapper(float32_column_datatype()),
             ConcreteDataType::float32_datatype().try_into().unwrap()
         );
         assert_eq!(
-            ColumnDataTypeWrapper(ColumnDataType::Float64),
+            ColumnDataTypeWrapper(float64_column_datatype()),
             ConcreteDataType::float64_datatype().try_into().unwrap()
         );
         assert_eq!(
-            ColumnDataTypeWrapper(ColumnDataType::Binary),
+            ColumnDataTypeWrapper(binary_column_datatype()),
             ConcreteDataType::binary_datatype().try_into().unwrap()
         );
         assert_eq!(
-            ColumnDataTypeWrapper(ColumnDataType::String),
+            ColumnDataTypeWrapper(string_column_datatype()),
             ConcreteDataType::string_datatype().try_into().unwrap()
         );
         assert_eq!(
-            ColumnDataTypeWrapper(ColumnDataType::Date),
+            ColumnDataTypeWrapper(date_column_datatype()),
             ConcreteDataType::date_datatype().try_into().unwrap()
         );
         assert_eq!(
-            ColumnDataTypeWrapper(ColumnDataType::Datetime),
+            ColumnDataTypeWrapper(datetime_column_datatype()),
             ConcreteDataType::datetime_datatype().try_into().unwrap()
         );
         assert_eq!(
-            ColumnDataTypeWrapper(ColumnDataType::TimestampMillisecond),
+            ColumnDataTypeWrapper(timestamp_millisecond_column_datatype()),
             ConcreteDataType::timestamp_millisecond_datatype()
                 .try_into()
                 .unwrap()
         );
         assert_eq!(
-            ColumnDataTypeWrapper(ColumnDataType::IntervalYearMonth),
+            ColumnDataTypeWrapper(interval_year_month_column_datatype()),
             ConcreteDataType::interval_datatype(IntervalUnit::YearMonth)
                 .try_into()
                 .unwrap()
         );
         assert_eq!(
-            ColumnDataTypeWrapper(ColumnDataType::IntervalDayTime),
+            ColumnDataTypeWrapper(interval_day_time_column_datatype()),
             ConcreteDataType::interval_datatype(IntervalUnit::DayTime)
                 .try_into()
                 .unwrap()
         );
         assert_eq!(
-            ColumnDataTypeWrapper(ColumnDataType::IntervalMonthDayNano),
+            ColumnDataTypeWrapper(interval_month_day_nano_column_datatype()),
             ConcreteDataType::interval_datatype(IntervalUnit::MonthDayNano)
                 .try_into()
                 .unwrap()
         );
         assert_eq!(
-            ColumnDataTypeWrapper(ColumnDataType::DurationMillisecond),
+            ColumnDataTypeWrapper(duration_millisecond_column_datatype()),
             ConcreteDataType::duration_millisecond_datatype()
                 .try_into()
                 .unwrap()
@@ -1321,7 +1442,7 @@ mod tests {
                 ..Default::default()
             }),
             null_mask: vec![],
-            datatype: 0,
+            datatype: None,
         };
 
         let vector = Arc::new(TimestampNanosecondVector::from_vec(vec![1, 2, 3]));
@@ -1362,7 +1483,7 @@ mod tests {
                 ..Default::default()
             }),
             null_mask: vec![],
-            datatype: 0,
+            datatype: None,
         };
 
         let vector = Arc::new(TimeNanosecondVector::from_vec(vec![1, 2, 3]));
@@ -1403,7 +1524,7 @@ mod tests {
                 ..Default::default()
             }),
             null_mask: vec![],
-            datatype: 0,
+            datatype: None,
         };
 
         let vector = Arc::new(IntervalYearMonthVector::from_vec(vec![1, 2, 3]));
@@ -1447,7 +1568,7 @@ mod tests {
                 ..Default::default()
             }),
             null_mask: vec![],
-            datatype: 0,
+            datatype: None,
         };
 
         let vector = Arc::new(DurationNanosecondVector::from_vec(vec![1, 2, 3]));
@@ -1491,7 +1612,7 @@ mod tests {
                 ..Default::default()
             }),
             null_mask: vec![2],
-            datatype: ColumnDataType::Boolean as i32,
+            datatype: Some(boolean_column_datatype()),
         };
         let row_count = 4;
 

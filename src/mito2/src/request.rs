@@ -22,7 +22,7 @@ use api::helper::{
     is_column_type_value_eq, is_semantic_type_eq, proto_value_type, to_column_data_type,
     to_proto_value,
 };
-use api::v1::{ColumnDataType, ColumnSchema, OpType, Rows, SemanticType, Value};
+use api::v1::{ColumnSchema, OpType, Rows, SemanticType, Value};
 use common_query::Output;
 use common_query::Output::AffectedRows;
 use common_telemetry::metric::Timer;
@@ -154,16 +154,16 @@ impl WriteRequest {
             if let Some(input_col) = rows_columns.remove(&column.column_schema.name) {
                 // Check data type.
                 ensure!(
-                    is_column_type_value_eq(input_col.datatype, &column.column_schema.data_type),
+                    is_column_type_value_eq(
+                        input_col.datatype.clone(),
+                        &column.column_schema.data_type
+                    ),
                     InvalidRequestSnafu {
                         region_id,
                         reason: format!(
-                            "column {} expect type {:?}, given: {}({})",
+                            "column {} expect type {:?}, given: ({:?})",
                             column.column_schema.name,
                             column.column_schema.data_type,
-                            ColumnDataType::try_from(input_col.datatype)
-                                .map(|v| v.as_str_name())
-                                .unwrap_or("Unknown"),
                             input_col.datatype,
                         )
                     }
@@ -261,7 +261,7 @@ impl WriteRequest {
         })?;
         self.rows.schema.push(ColumnSchema {
             column_name: column.column_schema.name.clone(),
-            datatype: datatype as i32,
+            datatype: Some(datatype),
             semantic_type: column.semantic_type as i32,
         });
 
@@ -357,15 +357,12 @@ pub(crate) fn validate_proto_value(
 ) -> Result<()> {
     if let Some(value_type) = proto_value_type(value) {
         ensure!(
-            value_type as i32 == column_schema.datatype,
+            Some(value_type.clone()) == column_schema.datatype,
             InvalidRequestSnafu {
                 region_id,
                 reason: format!(
-                    "value has type {:?}, but column {} has type {:?}({})",
-                    value_type,
-                    column_schema.column_name,
-                    ColumnDataType::try_from(column_schema.datatype),
-                    column_schema.datatype,
+                    "value has type {:?}, but column {} has type ({:?})",
+                    value_type, column_schema.column_name, column_schema.datatype,
                 ),
             }
         );
@@ -698,8 +695,11 @@ pub(crate) struct CompactionFailed {
 
 #[cfg(test)]
 mod tests {
+    use api::helper::{
+        int64_column_datatype, string_column_datatype, timestamp_millisecond_column_datatype,
+    };
     use api::v1::value::ValueData;
-    use api::v1::{Row, SemanticType};
+    use api::v1::{ColumnDataType, Row, SemanticType};
     use datatypes::prelude::ConcreteDataType;
     use datatypes::schema::ColumnDefaultConstraint;
     use store_api::metadata::RegionMetadataBuilder;
@@ -715,7 +715,7 @@ mod tests {
     ) -> ColumnSchema {
         ColumnSchema {
             column_name: name.to_string(),
-            datatype: data_type as i32,
+            datatype: Some(data_type),
             semantic_type: semantic_type as i32,
         }
     }
@@ -737,8 +737,8 @@ mod tests {
     fn test_write_request_duplicate_column() {
         let rows = Rows {
             schema: vec![
-                new_column_schema("c0", ColumnDataType::Int64, SemanticType::Tag),
-                new_column_schema("c0", ColumnDataType::Int64, SemanticType::Tag),
+                new_column_schema("c0", int64_column_datatype(), SemanticType::Tag),
+                new_column_schema("c0", int64_column_datatype(), SemanticType::Tag),
             ],
             rows: vec![],
         };
@@ -751,8 +751,8 @@ mod tests {
     fn test_valid_write_request() {
         let rows = Rows {
             schema: vec![
-                new_column_schema("c0", ColumnDataType::Int64, SemanticType::Tag),
-                new_column_schema("c1", ColumnDataType::Int64, SemanticType::Tag),
+                new_column_schema("c0", int64_column_datatype(), SemanticType::Tag),
+                new_column_schema("c1", int64_column_datatype(), SemanticType::Tag),
             ],
             rows: vec![Row {
                 values: vec![i64_value(1), i64_value(2)],
@@ -769,8 +769,8 @@ mod tests {
     fn test_write_request_column_num() {
         let rows = Rows {
             schema: vec![
-                new_column_schema("c0", ColumnDataType::Int64, SemanticType::Tag),
-                new_column_schema("c1", ColumnDataType::Int64, SemanticType::Tag),
+                new_column_schema("c0", int64_column_datatype(), SemanticType::Tag),
+                new_column_schema("c1", int64_column_datatype(), SemanticType::Tag),
             ],
             rows: vec![Row {
                 values: vec![i64_value(1), i64_value(2), i64_value(3)],
@@ -812,10 +812,10 @@ mod tests {
             schema: vec![
                 new_column_schema(
                     "ts",
-                    ColumnDataType::TimestampMillisecond,
+                    timestamp_millisecond_column_datatype(),
                     SemanticType::Timestamp,
                 ),
-                new_column_schema("k0", ColumnDataType::Int64, SemanticType::Tag),
+                new_column_schema("k0", int64_column_datatype(), SemanticType::Tag),
             ],
             rows: vec![Row {
                 values: vec![ts_ms_value(1), i64_value(2)],
@@ -831,8 +831,8 @@ mod tests {
     fn test_column_type() {
         let rows = Rows {
             schema: vec![
-                new_column_schema("ts", ColumnDataType::Int64, SemanticType::Timestamp),
-                new_column_schema("k0", ColumnDataType::Int64, SemanticType::Tag),
+                new_column_schema("ts", int64_column_datatype(), SemanticType::Timestamp),
+                new_column_schema("k0", int64_column_datatype(), SemanticType::Tag),
             ],
             rows: vec![Row {
                 values: vec![i64_value(1), i64_value(2)],
@@ -842,7 +842,7 @@ mod tests {
 
         let request = WriteRequest::new(RegionId::new(1, 1), OpType::Put, rows).unwrap();
         let err = request.check_schema(&metadata).unwrap_err();
-        check_invalid_request(&err, "column ts expect type Timestamp(Millisecond(TimestampMillisecondType)), given: INT64(4)");
+        check_invalid_request(&err, "column ts expect type Timestamp(Millisecond(TimestampMillisecondType)), given: (Some(ColumnDataType { data_type: Int64, type_extension: None }))");
     }
 
     #[test]
@@ -851,10 +851,10 @@ mod tests {
             schema: vec![
                 new_column_schema(
                     "ts",
-                    ColumnDataType::TimestampMillisecond,
+                    timestamp_millisecond_column_datatype(),
                     SemanticType::Tag,
                 ),
-                new_column_schema("k0", ColumnDataType::Int64, SemanticType::Tag),
+                new_column_schema("k0", int64_column_datatype(), SemanticType::Tag),
             ],
             rows: vec![Row {
                 values: vec![ts_ms_value(1), i64_value(2)],
@@ -873,10 +873,10 @@ mod tests {
             schema: vec![
                 new_column_schema(
                     "ts",
-                    ColumnDataType::TimestampMillisecond,
+                    timestamp_millisecond_column_datatype(),
                     SemanticType::Timestamp,
                 ),
-                new_column_schema("k0", ColumnDataType::Int64, SemanticType::Tag),
+                new_column_schema("k0", int64_column_datatype(), SemanticType::Tag),
             ],
             rows: vec![Row {
                 values: vec![Value { value_data: None }, i64_value(2)],
@@ -894,7 +894,7 @@ mod tests {
         let rows = Rows {
             schema: vec![new_column_schema(
                 "k0",
-                ColumnDataType::Int64,
+                int64_column_datatype(),
                 SemanticType::Tag,
             )],
             rows: vec![Row {
@@ -914,11 +914,11 @@ mod tests {
             schema: vec![
                 new_column_schema(
                     "ts",
-                    ColumnDataType::TimestampMillisecond,
+                    timestamp_millisecond_column_datatype(),
                     SemanticType::Timestamp,
                 ),
-                new_column_schema("k0", ColumnDataType::Int64, SemanticType::Tag),
-                new_column_schema("k1", ColumnDataType::Int64, SemanticType::Tag),
+                new_column_schema("k0", int64_column_datatype(), SemanticType::Tag),
+                new_column_schema("k1", int64_column_datatype(), SemanticType::Tag),
             ],
             rows: vec![Row {
                 values: vec![ts_ms_value(1), i64_value(2), i64_value(3)],
@@ -936,7 +936,7 @@ mod tests {
         let rows = Rows {
             schema: vec![new_column_schema(
                 "ts",
-                ColumnDataType::TimestampMillisecond,
+                timestamp_millisecond_column_datatype(),
                 SemanticType::Timestamp,
             )],
             rows: vec![Row {
@@ -954,10 +954,10 @@ mod tests {
             schema: vec![
                 new_column_schema(
                     "ts",
-                    ColumnDataType::TimestampMillisecond,
+                    timestamp_millisecond_column_datatype(),
                     SemanticType::Timestamp,
                 ),
-                new_column_schema("k0", ColumnDataType::Int64, SemanticType::Tag),
+                new_column_schema("k0", int64_column_datatype(), SemanticType::Tag),
             ],
             rows: vec![Row {
                 values: vec![ts_ms_value(1), Value { value_data: None }],
@@ -1019,7 +1019,7 @@ mod tests {
         let rows = Rows {
             schema: vec![new_column_schema(
                 "ts",
-                ColumnDataType::TimestampMillisecond,
+                timestamp_millisecond_column_datatype(),
                 SemanticType::Timestamp,
             )],
             rows: vec![Row {
@@ -1036,10 +1036,10 @@ mod tests {
 
         let rows = Rows {
             schema: vec![
-                new_column_schema("k0", ColumnDataType::Int64, SemanticType::Tag),
+                new_column_schema("k0", int64_column_datatype(), SemanticType::Tag),
                 new_column_schema(
                     "ts",
-                    ColumnDataType::TimestampMillisecond,
+                    timestamp_millisecond_column_datatype(),
                     SemanticType::Timestamp,
                 ),
             ],
@@ -1054,14 +1054,14 @@ mod tests {
 
         let expect_rows = Rows {
             schema: vec![
-                new_column_schema("k0", ColumnDataType::Int64, SemanticType::Tag),
+                new_column_schema("k0", int64_column_datatype(), SemanticType::Tag),
                 new_column_schema(
                     "ts",
-                    ColumnDataType::TimestampMillisecond,
+                    timestamp_millisecond_column_datatype(),
                     SemanticType::Timestamp,
                 ),
-                new_column_schema("f0", ColumnDataType::Int64, SemanticType::Field),
-                new_column_schema("f1", ColumnDataType::Int64, SemanticType::Field),
+                new_column_schema("f0", int64_column_datatype(), SemanticType::Field),
+                new_column_schema("f1", int64_column_datatype(), SemanticType::Field),
             ],
             // Column f1 is not nullable and we use 0 for padding.
             rows: vec![Row {
@@ -1081,7 +1081,7 @@ mod tests {
         let rows = Rows {
             schema: vec![new_column_schema(
                 "k0",
-                ColumnDataType::Int64,
+                int64_column_datatype(),
                 SemanticType::Tag,
             )],
             rows: vec![Row {
@@ -1100,13 +1100,13 @@ mod tests {
         // Missing f0 and f1 has invalid type (string).
         let rows = Rows {
             schema: vec![
-                new_column_schema("k0", ColumnDataType::Int64, SemanticType::Tag),
+                new_column_schema("k0", int64_column_datatype(), SemanticType::Tag),
                 new_column_schema(
                     "ts",
-                    ColumnDataType::TimestampMillisecond,
+                    timestamp_millisecond_column_datatype(),
                     SemanticType::Timestamp,
                 ),
-                new_column_schema("f1", ColumnDataType::String, SemanticType::Field),
+                new_column_schema("f1", string_column_datatype(), SemanticType::Field),
             ],
             rows: vec![Row {
                 values: vec![
@@ -1124,7 +1124,7 @@ mod tests {
         let err = request.check_schema(&metadata).unwrap_err();
         check_invalid_request(
             &err,
-            "column f1 expect type Int64(Int64Type), given: STRING(12)",
+            "column f1 expect type Int64(Int64Type), given: (Some(ColumnDataType { data_type: String, type_extension: None }))",
         );
     }
 }

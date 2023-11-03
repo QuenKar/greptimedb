@@ -12,7 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use api::v1::{column, Column, ColumnDataType, InsertRequest as GrpcInsertRequest, SemanticType};
+use api::helper::{
+    float64_column_datatype, string_column_datatype, timestamp_millisecond_column_datatype,
+};
+use api::v1::{column, Column, InsertRequest as GrpcInsertRequest, SemanticType};
 
 use crate::error::{self, Result};
 
@@ -137,7 +140,7 @@ impl DataPoint {
                 ..Default::default()
             }),
             semantic_type: SemanticType::Timestamp as i32,
-            datatype: ColumnDataType::TimestampMillisecond as i32,
+            datatype: Some(timestamp_millisecond_column_datatype()),
             ..Default::default()
         };
         columns.push(ts_column);
@@ -149,7 +152,7 @@ impl DataPoint {
                 ..Default::default()
             }),
             semantic_type: SemanticType::Field as i32,
-            datatype: ColumnDataType::Float64 as i32,
+            datatype: Some(float64_column_datatype()),
             ..Default::default()
         };
         columns.push(field_column);
@@ -162,7 +165,7 @@ impl DataPoint {
                     ..Default::default()
                 }),
                 semantic_type: SemanticType::Tag as i32,
-                datatype: ColumnDataType::String as i32,
+                datatype: Some(string_column_datatype()),
                 ..Default::default()
             });
         }

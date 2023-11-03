@@ -157,9 +157,8 @@ impl<S: LogStore> WalWriter<S> {
 
 #[cfg(test)]
 mod tests {
-    use api::v1::{
-        value, ColumnDataType, ColumnSchema, Mutation, OpType, Row, Rows, SemanticType, Value,
-    };
+    use api::helper::{string_column_datatype, timestamp_millisecond_column_datatype};
+    use api::v1::{value, ColumnSchema, Mutation, OpType, Row, Rows, SemanticType, Value};
     use common_test_util::temp_dir::{create_temp_dir, TempDir};
     use futures::TryStreamExt;
     use log_store::raft_engine::log_store::RaftEngineLogStore;
@@ -212,12 +211,12 @@ mod tests {
         let schema = vec![
             ColumnSchema {
                 column_name: "tag".to_string(),
-                datatype: ColumnDataType::String as i32,
+                datatype: Some(string_column_datatype()),
                 semantic_type: SemanticType::Tag as i32,
             },
             ColumnSchema {
                 column_name: "ts".to_string(),
-                datatype: ColumnDataType::TimestampMillisecond as i32,
+                datatype: Some(timestamp_millisecond_column_datatype()),
                 semantic_type: SemanticType::Timestamp as i32,
             },
         ];

@@ -153,11 +153,11 @@ impl TryFrom<PbAddColumn> for AddColumn {
                 err: "'column_def' is absent",
             })?;
 
-        let data_type = column_def.data_type;
-        let data_type = ColumnDataTypeWrapper::try_new(data_type)
+        let data_type = column_def.data_type.clone();
+        let data_type = ColumnDataTypeWrapper::try_new(data_type.clone())
             .map_err(|_| {
                 InvalidRawRegionRequestSnafu {
-                    err: format!("unknown raw column datatype: {data_type}"),
+                    err: format!("unknown raw column datatype: {:?}", data_type),
                 }
                 .build()
             })?
@@ -224,10 +224,11 @@ pub struct AlterRequest {
 
 #[cfg(test)]
 mod tests {
+    use api::helper::{int32_column_datatype, string_column_datatype};
     use api::v1::region::{
         AddColumn as PbAddColumn, AddColumns, DropColumn, DropColumns, RegionColumnDef,
     };
-    use api::v1::{ColumnDataType, ColumnDef};
+    use api::v1::ColumnDef;
     use datatypes::prelude::*;
     use datatypes::schema::ColumnDefaultConstraint;
 
@@ -312,7 +313,7 @@ mod tests {
                     column_def: Some(RegionColumnDef {
                         column_def: Some(ColumnDef {
                             name: "my_tag".to_string(),
-                            data_type: ColumnDataType::Int32 as _,
+                            data_type: Some(int32_column_datatype()),
                             is_nullable: false,
                             default_constraint: vec![],
                             semantic_type: SemanticType::Tag as _,
@@ -326,7 +327,7 @@ mod tests {
                     column_def: Some(RegionColumnDef {
                         column_def: Some(ColumnDef {
                             name: "my_field".to_string(),
-                            data_type: ColumnDataType::String as _,
+                            data_type: Some(string_column_datatype()),
                             is_nullable: true,
                             default_constraint: ColumnDefaultConstraint::Value("hello".into())
                                 .try_into()

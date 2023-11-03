@@ -15,13 +15,16 @@
 use std::collections::{HashMap, HashSet};
 use std::sync::{Arc, Mutex};
 
+use api::helper::{
+    int32_column_datatype, string_column_datatype, timestamp_millisecond_column_datatype,
+};
 use api::v1::add_column_location::LocationType;
 use api::v1::alter_expr::Kind;
 use api::v1::region::region_request::{self, Body as PbRegionRequest};
 use api::v1::region::{CreateRequest as PbCreateRegionRequest, RegionColumnDef};
 use api::v1::{
-    region, AddColumn, AddColumnLocation, AddColumns, AlterExpr, ColumnDataType,
-    ColumnDef as PbColumnDef, CreateTableExpr, DropColumn, DropColumns, SemanticType,
+    region, AddColumn, AddColumnLocation, AddColumns, AlterExpr, ColumnDef as PbColumnDef,
+    CreateTableExpr, DropColumn, DropColumns, SemanticType,
 };
 use client::client_manager::DatanodeClients;
 use common_catalog::consts::MITO2_ENGINE;
@@ -49,7 +52,7 @@ fn create_table_task() -> CreateTableTask {
         column_defs: vec![
             PbColumnDef {
                 name: "ts".to_string(),
-                data_type: ColumnDataType::TimestampMillisecond as i32,
+                data_type: Some(timestamp_millisecond_column_datatype()),
                 is_nullable: false,
                 default_constraint: vec![],
                 semantic_type: SemanticType::Timestamp as i32,
@@ -57,7 +60,7 @@ fn create_table_task() -> CreateTableTask {
             },
             PbColumnDef {
                 name: "my_tag1".to_string(),
-                data_type: ColumnDataType::String as i32,
+                data_type: Some(string_column_datatype()),
                 is_nullable: true,
                 default_constraint: vec![],
                 semantic_type: SemanticType::Tag as i32,
@@ -65,7 +68,7 @@ fn create_table_task() -> CreateTableTask {
             },
             PbColumnDef {
                 name: "my_tag2".to_string(),
-                data_type: ColumnDataType::String as i32,
+                data_type: Some(string_column_datatype()),
                 is_nullable: true,
                 default_constraint: vec![],
                 semantic_type: SemanticType::Tag as i32,
@@ -73,7 +76,7 @@ fn create_table_task() -> CreateTableTask {
             },
             PbColumnDef {
                 name: "my_field_column".to_string(),
-                data_type: ColumnDataType::Int32 as i32,
+                data_type: Some(int32_column_datatype()),
                 is_nullable: true,
                 default_constraint: vec![],
                 semantic_type: SemanticType::Field as i32,
@@ -109,7 +112,7 @@ fn test_create_region_request_template() {
             RegionColumnDef {
                 column_def: Some(PbColumnDef {
                     name: "ts".to_string(),
-                    data_type: ColumnDataType::TimestampMillisecond as i32,
+                    data_type: Some(timestamp_millisecond_column_datatype()),
                     is_nullable: false,
                     default_constraint: vec![],
                     semantic_type: SemanticType::Timestamp as i32,
@@ -120,7 +123,7 @@ fn test_create_region_request_template() {
             RegionColumnDef {
                 column_def: Some(PbColumnDef {
                     name: "my_tag1".to_string(),
-                    data_type: ColumnDataType::String as i32,
+                    data_type: Some(string_column_datatype()),
                     is_nullable: true,
                     default_constraint: vec![],
                     semantic_type: SemanticType::Tag as i32,
@@ -131,7 +134,7 @@ fn test_create_region_request_template() {
             RegionColumnDef {
                 column_def: Some(PbColumnDef {
                     name: "my_tag2".to_string(),
-                    data_type: ColumnDataType::String as i32,
+                    data_type: Some(string_column_datatype()),
                     is_nullable: true,
                     default_constraint: vec![],
                     semantic_type: SemanticType::Tag as i32,
@@ -142,7 +145,7 @@ fn test_create_region_request_template() {
             RegionColumnDef {
                 column_def: Some(PbColumnDef {
                     name: "my_field_column".to_string(),
-                    data_type: ColumnDataType::Int32 as i32,
+                    data_type: Some(int32_column_datatype()),
                     is_nullable: true,
                     default_constraint: vec![],
                     semantic_type: SemanticType::Field as i32,
@@ -282,7 +285,7 @@ fn test_create_alter_region_request() {
                 add_columns: vec![AddColumn {
                     column_def: Some(PbColumnDef {
                         name: "my_tag3".to_string(),
-                        data_type: ColumnDataType::String as i32,
+                        data_type: Some(string_column_datatype()),
                         is_nullable: true,
                         default_constraint: b"hello".to_vec(),
                         semantic_type: SemanticType::Tag as i32,
@@ -317,7 +320,7 @@ fn test_create_alter_region_request() {
                     column_def: Some(RegionColumnDef {
                         column_def: Some(PbColumnDef {
                             name: "my_tag3".to_string(),
-                            data_type: ColumnDataType::String as i32,
+                            data_type: Some(string_column_datatype()),
                             is_nullable: true,
                             default_constraint: b"hello".to_vec(),
                             semantic_type: SemanticType::Tag as i32,

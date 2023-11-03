@@ -126,7 +126,7 @@ impl CreateTableProcedure {
                 RegionColumnDef {
                     column_def: Some(ColumnDef {
                         name: c.name.clone(),
-                        data_type: c.data_type,
+                        data_type: c.data_type.clone(),
                         is_nullable: c.is_nullable,
                         default_constraint: c.default_constraint.clone(),
                         semantic_type: semantic_type as i32,

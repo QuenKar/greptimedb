@@ -35,10 +35,11 @@ use api::v1::add_column_location::LocationType;
 use api::v1::{AddColumnLocation as Location, SemanticType};
 use common_base::bytes::Bytes;
 use common_query::AddColumnLocation;
+use common_telemetry::{info, logging};
 use common_time::Timestamp;
+use datatypes::decimal::Decimal128;
 use datatypes::prelude::ConcreteDataType;
 use datatypes::schema::{ColumnDefaultConstraint, ColumnSchema, COMMENT_KEY};
-use datatypes::types::cast::CastOption;
 use datatypes::types::{cast, TimestampType};
 use datatypes::value::{OrderedF32, OrderedF64, Value};
 pub use option_map::OptionMap;
@@ -146,6 +147,13 @@ macro_rules! parse_number_to_value {
                 let n  = parse_sql_number::<i64>($n)?;
                 Ok(Value::Timestamp(Timestamp::new(n, t.unit())))
             },
+            ConcreteDataType::Decimal128(_d) => {
+                if let Ok(decimal) = Decimal128::from_str($n){
+                    return Ok(Value::Decimal128(decimal));
+                }
+                ParseSqlValueSnafu{msg: format!("Fail to parse number {}",$n)}.fail()
+            },
+
 
             _ => ParseSqlValueSnafu {
                 msg: format!("Fail to parse number {}, invalid column type: {:?}",
@@ -223,11 +231,9 @@ pub fn sql_value_to_value(
         }
     };
     if value.data_type() != *data_type {
-        cast::cast_with_opt(value, data_type, &CastOption { strict: true }).with_context(|_| {
-            InvalidCastSnafu {
-                sql_value: sql_val.clone(),
-                datatype: data_type,
-            }
+        cast::cast(value, data_type).with_context(|_| InvalidCastSnafu {
+            sql_value: sql_val.clone(),
+            datatype: data_type,
         })
     } else {
         Ok(value)
@@ -353,9 +359,11 @@ pub fn sql_column_def_to_grpc_column_def(col: &ColumnDef) -> Result<api::v1::Col
         .transpose()
         .context(SerializeColumnDefaultConstraintSnafu)?;
 
-    let data_type = ColumnDataTypeWrapper::try_from(data_type)
-        .context(ConvertToGrpcDataTypeSnafu)?
-        .datatype() as i32;
+    let data_type = Some(
+        ColumnDataTypeWrapper::try_from(data_type)
+            .context(ConvertToGrpcDataTypeSnafu)?
+            .datatype(),
+    );
     Ok(api::v1::ColumnDef {
         name,
         data_type,
@@ -408,11 +416,17 @@ pub fn sql_data_type_to_concrete_data_type(data_type: &SqlDataType) -> Result<Co
             .unwrap_or(ConcreteDataType::timestamp_millisecond_datatype())),
         SqlDataType::Interval => Ok(ConcreteDataType::interval_month_day_nano_datatype()),
         SqlDataType::Decimal(exact_info) => match exact_info {
-            ExactNumberInfo::None => Ok(ConcreteDataType::default_decimal128_datatype()),
+            ExactNumberInfo::None => {
+                logging::info!(
+                    "Using default decimal128 datatype for decimal without precision and scale"
+                );
+                Ok(ConcreteDataType::default_decimal128_datatype())
+            }
             // refer to https://dev.mysql.com/doc/refman/8.0/en/fixed-point-types.html
             // In standard SQL, the syntax DECIMAL(M) is equivalent to DECIMAL(M,0).
             ExactNumberInfo::Precision(p) => Ok(ConcreteDataType::decimal128_datatype(*p as u8, 0)),
             ExactNumberInfo::PrecisionAndScale(p, s) => {
+                info!("Using decimal128 datatype for decimal with precision and scale");
                 Ok(ConcreteDataType::decimal128_datatype(*p as u8, *s as i8))
             }
         },
@@ -481,7 +495,7 @@ pub fn sql_location_to_grpc_add_column_location(
 mod tests {
     use std::assert_matches::assert_matches;
 
-    use api::v1::ColumnDataType;
+    use api::helper::float64_column_datatype;
     use common_time::timestamp::TimeUnit;
     use datatypes::types::BooleanType;
     use datatypes::value::OrderedFloat;
@@ -796,7 +810,7 @@ mod tests {
 
         assert_eq!("col", grpc_column_def.name);
         assert!(grpc_column_def.is_nullable); // nullable when options are empty
-        assert_eq!(ColumnDataType::Float64 as i32, grpc_column_def.data_type);
+        assert_eq!(Some(float64_column_datatype()), grpc_column_def.data_type);
         assert!(grpc_column_def.default_constraint.is_empty());
 
         // test not null

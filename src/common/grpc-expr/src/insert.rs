@@ -96,7 +96,12 @@ mod tests {
     use std::sync::Arc;
     use std::{assert_eq, vec};
 
-    use api::helper::ColumnDataTypeWrapper;
+    use api::helper::{
+        duration_millisecond_column_datatype, float64_column_datatype,
+        interval_month_day_nano_column_datatype, string_column_datatype,
+        time_millisecond_column_datatype, timestamp_millisecond_column_datatype,
+        timestamp_second_column_datatype, ColumnDataTypeWrapper,
+    };
     use api::v1::column::Values;
     use api::v1::{Column, ColumnDataType, IntervalMonthDayNano, SemanticType};
     use common_base::BitVec;
@@ -115,7 +120,7 @@ mod tests {
     #[inline]
     fn build_column_schema(
         column_name: &str,
-        datatype: i32,
+        datatype: Option<ColumnDataType>,
         nullable: bool,
     ) -> error::Result<ColumnSchema> {
         let datatype_wrapper =
@@ -171,6 +176,7 @@ mod tests {
                         .find(|c| c.name == "host")
                         .unwrap()
                         .data_type
+                        .clone()
                 )
                 .unwrap()
             )
@@ -185,6 +191,7 @@ mod tests {
                         .find(|c| c.name == "cpu")
                         .unwrap()
                         .data_type
+                        .clone()
                 )
                 .unwrap()
             )
@@ -199,6 +206,7 @@ mod tests {
                         .find(|c| c.name == "memory")
                         .unwrap()
                         .data_type
+                        .clone()
                 )
                 .unwrap()
             )
@@ -213,6 +221,7 @@ mod tests {
                         .find(|c| c.name == "time")
                         .unwrap()
                         .data_type
+                        .clone()
                 )
                 .unwrap()
             )
@@ -227,6 +236,7 @@ mod tests {
                         .find(|c| c.name == "interval")
                         .unwrap()
                         .data_type
+                        .clone()
                 )
                 .unwrap()
             )
@@ -241,6 +251,7 @@ mod tests {
                         .find(|c| c.name == "duration")
                         .unwrap()
                         .data_type
+                        .clone()
                 )
                 .unwrap()
             )
@@ -255,6 +266,7 @@ mod tests {
                         .find(|c| c.name == "ts")
                         .unwrap()
                         .data_type
+                        .clone()
                 )
                 .unwrap()
             )
@@ -264,8 +276,8 @@ mod tests {
     #[test]
     fn test_find_new_columns() {
         let mut columns = Vec::with_capacity(1);
-        let cpu_column = build_column_schema("cpu", 10, true).unwrap();
-        let ts_column = build_column_schema("ts", 15, false)
+        let cpu_column = build_column_schema("cpu", Some(float64_column_datatype()), true).unwrap();
+        let ts_column = build_column_schema("ts", Some(timestamp_second_column_datatype()), false)
             .unwrap()
             .with_time_index(true);
         columns.push(cpu_column);
@@ -284,8 +296,10 @@ mod tests {
         assert_eq!(
             ConcreteDataType::string_datatype(),
             ConcreteDataType::from(
-                ColumnDataTypeWrapper::try_new(host_column.column_def.as_ref().unwrap().data_type)
-                    .unwrap()
+                ColumnDataTypeWrapper::try_new(
+                    host_column.column_def.as_ref().unwrap().data_type.clone()
+                )
+                .unwrap()
             )
         );
 
@@ -294,7 +308,7 @@ mod tests {
             ConcreteDataType::float64_datatype(),
             ConcreteDataType::from(
                 ColumnDataTypeWrapper::try_new(
-                    memory_column.column_def.as_ref().unwrap().data_type
+                    memory_column.column_def.as_ref().unwrap().data_type.clone()
                 )
                 .unwrap()
             )
@@ -304,8 +318,10 @@ mod tests {
         assert_eq!(
             ConcreteDataType::time_datatype(TimeUnit::Millisecond),
             ConcreteDataType::from(
-                ColumnDataTypeWrapper::try_new(time_column.column_def.as_ref().unwrap().data_type)
-                    .unwrap()
+                ColumnDataTypeWrapper::try_new(
+                    time_column.column_def.as_ref().unwrap().data_type.clone()
+                )
+                .unwrap()
             )
         );
 
@@ -314,7 +330,12 @@ mod tests {
             ConcreteDataType::interval_datatype(IntervalUnit::MonthDayNano),
             ConcreteDataType::from(
                 ColumnDataTypeWrapper::try_new(
-                    interval_column.column_def.as_ref().unwrap().data_type
+                    interval_column
+                        .column_def
+                        .as_ref()
+                        .unwrap()
+                        .data_type
+                        .clone()
                 )
                 .unwrap()
             )
@@ -326,7 +347,12 @@ mod tests {
             ConcreteDataType::duration_millisecond_datatype(),
             ConcreteDataType::from(
                 ColumnDataTypeWrapper::try_new(
-                    duration_column.column_def.as_ref().unwrap().data_type
+                    duration_column
+                        .column_def
+                        .as_ref()
+                        .unwrap()
+                        .data_type
+                        .clone()
                 )
                 .unwrap()
             )
@@ -359,7 +385,7 @@ mod tests {
             semantic_type: SemanticType::Tag as i32,
             values: Some(host_vals),
             null_mask: vec![0],
-            datatype: ColumnDataType::String as i32,
+            datatype: Some(string_column_datatype()),
         };
 
         let cpu_vals = Values {
@@ -371,7 +397,7 @@ mod tests {
             semantic_type: SemanticType::Field as i32,
             values: Some(cpu_vals),
             null_mask: vec![2],
-            datatype: ColumnDataType::Float64 as i32,
+            datatype: Some(float64_column_datatype()),
         };
 
         let mem_vals = Values {
@@ -383,7 +409,7 @@ mod tests {
             semantic_type: SemanticType::Field as i32,
             values: Some(mem_vals),
             null_mask: vec![1],
-            datatype: ColumnDataType::Float64 as i32,
+            datatype: Some(float64_column_datatype()),
         };
 
         let time_vals = Values {
@@ -395,7 +421,7 @@ mod tests {
             semantic_type: SemanticType::Field as i32,
             values: Some(time_vals),
             null_mask: vec![0],
-            datatype: ColumnDataType::TimeMillisecond as i32,
+            datatype: Some(time_millisecond_column_datatype()),
         };
 
         let interval1 = IntervalMonthDayNano {
@@ -417,7 +443,7 @@ mod tests {
             semantic_type: SemanticType::Field as i32,
             values: Some(interval_vals),
             null_mask: vec![0],
-            datatype: ColumnDataType::IntervalMonthDayNano as i32,
+            datatype: Some(interval_month_day_nano_column_datatype()),
         };
 
         let duration_vals = Values {
@@ -429,7 +455,7 @@ mod tests {
             semantic_type: SemanticType::Field as i32,
             values: Some(duration_vals),
             null_mask: vec![0],
-            datatype: ColumnDataType::DurationMillisecond as i32,
+            datatype: Some(duration_millisecond_column_datatype()),
         };
 
         let ts_vals = Values {
@@ -441,7 +467,7 @@ mod tests {
             semantic_type: SemanticType::Timestamp as i32,
             values: Some(ts_vals),
             null_mask: vec![0],
-            datatype: ColumnDataType::TimestampMillisecond as i32,
+            datatype: Some(timestamp_millisecond_column_datatype()),
         };
 
         (

@@ -2239,7 +2239,7 @@ mod tests {
 
     #[test]
     fn test_value_ref_estimated_size() {
-        assert_eq!(std::mem::size_of::<ValueRef>(), 24);
+        assert_eq!(std::mem::size_of::<ValueRef>(), 48);
 
         check_value_ref_size_eq(&ValueRef::Boolean(true), 1);
         check_value_ref_size_eq(&ValueRef::UInt8(1), 1);

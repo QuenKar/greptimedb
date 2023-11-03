@@ -340,7 +340,7 @@ pub fn column_schemas_to_defs(
 
             Ok(api::v1::ColumnDef {
                 name: schema.name.clone(),
-                data_type: datatype as i32,
+                data_type: Some(datatype),
                 is_nullable: schema.is_nullable(),
                 default_constraint: match schema.default_constraint() {
                     None => vec![],

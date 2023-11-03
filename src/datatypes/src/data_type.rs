@@ -105,7 +105,9 @@ impl fmt::Display for ConcreteDataType {
             ConcreteDataType::Dictionary(_) => write!(f, "Dictionary"),
             ConcreteDataType::Interval(_) => write!(f, "Interval"),
             ConcreteDataType::Duration(_) => write!(f, "Duration"),
-            ConcreteDataType::Decimal128(_) => write!(f, "Decimal128"),
+            ConcreteDataType::Decimal128(d) => {
+                write!(f, "Decimal128({},{})", d.precision(), d.scale())
+            }
         }
     }
 }

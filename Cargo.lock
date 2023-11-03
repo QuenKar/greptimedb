@@ -3636,7 +3636,7 @@ checksum = "d2fabcfbdc87f4758337ca535fb41a6d701b65693ce38287d856d1674551ec9b"
 [[package]]
 name = "greptime-proto"
 version = "0.1.0"
-source = "git+https://github.com/Quenkar/greptime-proto.git?rev=3d48923f3779925802ccbb28620330b7e6263823#3d48923f3779925802ccbb28620330b7e6263823"
+source = "git+https://github.com/Quenkar/greptime-proto.git?rev=de4d3f2015f999aab6b18dc5b1192aab5205f5f6#de4d3f2015f999aab6b18dc5b1192aab5205f5f6"
 dependencies = [
  "prost 0.12.1",
  "serde",
@@ -8687,6 +8687,7 @@ dependencies = [
  "common-error",
  "common-macro",
  "common-query",
+ "common-telemetry",
  "common-time",
  "datafusion-sql",
  "datatypes",

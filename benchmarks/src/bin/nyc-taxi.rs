@@ -25,6 +25,10 @@ use arrow::array::{ArrayRef, PrimitiveArray, StringArray, TimestampMicrosecondAr
 use arrow::datatypes::{DataType, Float64Type, Int64Type};
 use arrow::record_batch::RecordBatch;
 use clap::Parser;
+use client::api::helper::{
+    float64_column_datatype, int64_column_datatype, string_column_datatype,
+    timestamp_microsecond_column_datatype,
+};
 use client::api::v1::column::Values;
 use client::api::v1::{
     Column, ColumnDataType, ColumnDef, CreateTableExpr, InsertRequest, InsertRequests, SemanticType,
@@ -172,7 +176,7 @@ fn build_values(column: &ArrayRef) -> (Values, ColumnDataType) {
                     i64_values: values.to_vec(),
                     ..Default::default()
                 },
-                ColumnDataType::Int64,
+                int64_column_datatype(),
             )
         }
         DataType::Float64 => {
@@ -186,7 +190,7 @@ fn build_values(column: &ArrayRef) -> (Values, ColumnDataType) {
                     f64_values: values.to_vec(),
                     ..Default::default()
                 },
-                ColumnDataType::Float64,
+                float64_column_datatype(),
             )
         }
         DataType::Timestamp(_, _) => {
@@ -200,7 +204,7 @@ fn build_values(column: &ArrayRef) -> (Values, ColumnDataType) {
                     timestamp_microsecond_values: values.to_vec(),
                     ..Default::default()
                 },
-                ColumnDataType::TimestampMicrosecond,
+                timestamp_microsecond_column_datatype(),
             )
         }
         DataType::Utf8 => {
@@ -211,7 +215,7 @@ fn build_values(column: &ArrayRef) -> (Values, ColumnDataType) {
                     string_values: values,
                     ..Default::default()
                 },
-                ColumnDataType::String,
+                string_column_datatype(),
             )
         }
         DataType::Null
@@ -261,7 +265,7 @@ fn create_table_expr(table_name: &str) -> CreateTableExpr {
         column_defs: vec![
             ColumnDef {
                 name: "VendorID".to_string(),
-                data_type: ColumnDataType::Int64 as i32,
+                data_type: Some(int64_column_datatype()),
                 is_nullable: true,
                 default_constraint: vec![],
                 semantic_type: SemanticType::Tag as i32,
@@ -269,7 +273,7 @@ fn create_table_expr(table_name: &str) -> CreateTableExpr {
             },
             ColumnDef {
                 name: "tpep_pickup_datetime".to_string(),
-                data_type: ColumnDataType::TimestampMicrosecond as i32,
+                data_type: Some(timestamp_microsecond_column_datatype()),
                 is_nullable: false,
                 default_constraint: vec![],
                 semantic_type: SemanticType::Timestamp as i32,
@@ -277,7 +281,7 @@ fn create_table_expr(table_name: &str) -> CreateTableExpr {
             },
             ColumnDef {
                 name: "tpep_dropoff_datetime".to_string(),
-                data_type: ColumnDataType::TimestampMicrosecond as i32,
+                data_type: Some(timestamp_microsecond_column_datatype()),
                 is_nullable: true,
                 default_constraint: vec![],
                 semantic_type: SemanticType::Field as i32,
@@ -285,7 +289,7 @@ fn create_table_expr(table_name: &str) -> CreateTableExpr {
             },
             ColumnDef {
                 name: "passenger_count".to_string(),
-                data_type: ColumnDataType::Float64 as i32,
+                data_type: Some(float64_column_datatype()),
                 is_nullable: true,
                 default_constraint: vec![],
                 semantic_type: SemanticType::Field as i32,
@@ -293,7 +297,7 @@ fn create_table_expr(table_name: &str) -> CreateTableExpr {
             },
             ColumnDef {
                 name: "trip_distance".to_string(),
-                data_type: ColumnDataType::Float64 as i32,
+                data_type: Some(float64_column_datatype()),
                 is_nullable: true,
                 default_constraint: vec![],
                 semantic_type: SemanticType::Field as i32,
@@ -301,7 +305,7 @@ fn create_table_expr(table_name: &str) -> CreateTableExpr {
             },
             ColumnDef {
                 name: "RatecodeID".to_string(),
-                data_type: ColumnDataType::Float64 as i32,
+                data_type: Some(float64_column_datatype()),
                 is_nullable: true,
                 default_constraint: vec![],
                 semantic_type: SemanticType::Field as i32,
@@ -309,7 +313,7 @@ fn create_table_expr(table_name: &str) -> CreateTableExpr {
             },
             ColumnDef {
                 name: "store_and_fwd_flag".to_string(),
-                data_type: ColumnDataType::String as i32,
+                data_type: Some(string_column_datatype()),
                 is_nullable: true,
                 default_constraint: vec![],
                 semantic_type: SemanticType::Field as i32,
@@ -317,7 +321,7 @@ fn create_table_expr(table_name: &str) -> CreateTableExpr {
             },
             ColumnDef {
                 name: "PULocationID".to_string(),
-                data_type: ColumnDataType::Int64 as i32,
+                data_type: Some(int64_column_datatype()),
                 is_nullable: true,
                 default_constraint: vec![],
                 semantic_type: SemanticType::Field as i32,
@@ -325,7 +329,7 @@ fn create_table_expr(table_name: &str) -> CreateTableExpr {
             },
             ColumnDef {
                 name: "DOLocationID".to_string(),
-                data_type: ColumnDataType::Int64 as i32,
+                data_type: Some(int64_column_datatype()),
                 is_nullable: true,
                 default_constraint: vec![],
                 semantic_type: SemanticType::Field as i32,
@@ -333,7 +337,7 @@ fn create_table_expr(table_name: &str) -> CreateTableExpr {
             },
             ColumnDef {
                 name: "payment_type".to_string(),
-                data_type: ColumnDataType::Int64 as i32,
+                data_type: Some(int64_column_datatype()),
                 is_nullable: true,
                 default_constraint: vec![],
                 semantic_type: SemanticType::Field as i32,
@@ -341,7 +345,7 @@ fn create_table_expr(table_name: &str) -> CreateTableExpr {
             },
             ColumnDef {
                 name: "fare_amount".to_string(),
-                data_type: ColumnDataType::Float64 as i32,
+                data_type: Some(float64_column_datatype()),
                 is_nullable: true,
                 default_constraint: vec![],
                 semantic_type: SemanticType::Field as i32,
@@ -349,7 +353,7 @@ fn create_table_expr(table_name: &str) -> CreateTableExpr {
             },
             ColumnDef {
                 name: "extra".to_string(),
-                data_type: ColumnDataType::Float64 as i32,
+                data_type: Some(float64_column_datatype()),
                 is_nullable: true,
                 default_constraint: vec![],
                 semantic_type: SemanticType::Field as i32,
@@ -357,7 +361,7 @@ fn create_table_expr(table_name: &str) -> CreateTableExpr {
             },
             ColumnDef {
                 name: "mta_tax".to_string(),
-                data_type: ColumnDataType::Float64 as i32,
+                data_type: Some(float64_column_datatype()),
                 is_nullable: true,
                 default_constraint: vec![],
                 semantic_type: SemanticType::Field as i32,
@@ -365,7 +369,7 @@ fn create_table_expr(table_name: &str) -> CreateTableExpr {
             },
             ColumnDef {
                 name: "tip_amount".to_string(),
-                data_type: ColumnDataType::Float64 as i32,
+                data_type: Some(float64_column_datatype()),
                 is_nullable: true,
                 default_constraint: vec![],
                 semantic_type: SemanticType::Field as i32,
@@ -373,7 +377,7 @@ fn create_table_expr(table_name: &str) -> CreateTableExpr {
             },
             ColumnDef {
                 name: "tolls_amount".to_string(),
-                data_type: ColumnDataType::Float64 as i32,
+                data_type: Some(float64_column_datatype()),
                 is_nullable: true,
                 default_constraint: vec![],
                 semantic_type: SemanticType::Field as i32,
@@ -381,7 +385,7 @@ fn create_table_expr(table_name: &str) -> CreateTableExpr {
             },
             ColumnDef {
                 name: "improvement_surcharge".to_string(),
-                data_type: ColumnDataType::Float64 as i32,
+                data_type: Some(float64_column_datatype()),
                 is_nullable: true,
                 default_constraint: vec![],
                 semantic_type: SemanticType::Field as i32,
@@ -389,7 +393,7 @@ fn create_table_expr(table_name: &str) -> CreateTableExpr {
             },
             ColumnDef {
                 name: "total_amount".to_string(),
-                data_type: ColumnDataType::Float64 as i32,
+                data_type: Some(float64_column_datatype()),
                 is_nullable: true,
                 default_constraint: vec![],
                 semantic_type: SemanticType::Field as i32,
@@ -397,7 +401,7 @@ fn create_table_expr(table_name: &str) -> CreateTableExpr {
             },
             ColumnDef {
                 name: "congestion_surcharge".to_string(),
-                data_type: ColumnDataType::Float64 as i32,
+                data_type: Some(float64_column_datatype()),
                 is_nullable: true,
                 default_constraint: vec![],
                 semantic_type: SemanticType::Field as i32,
@@ -405,7 +409,7 @@ fn create_table_expr(table_name: &str) -> CreateTableExpr {
             },
             ColumnDef {
                 name: "airport_fee".to_string(),
-                data_type: ColumnDataType::Float64 as i32,
+                data_type: Some(float64_column_datatype()),
                 is_nullable: true,
                 default_constraint: vec![],
                 semantic_type: SemanticType::Field as i32,

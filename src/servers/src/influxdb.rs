@@ -12,8 +12,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use api::helper::{
+    boolean_column_datatype, float64_column_datatype, int64_column_datatype,
+    string_column_datatype, uint64_column_datatype,
+};
 use api::v1::value::ValueData;
-use api::v1::{ColumnDataType, RowInsertRequests};
+use api::v1::RowInsertRequests;
 use common_grpc::writer::Precision;
 use influxdb_line_protocol::{parse_lines, FieldValue};
 use snafu::ResultExt;
@@ -60,14 +64,14 @@ impl TryFrom<InfluxdbRequest> for RowInsertRequests {
             // fields
             let fields = fields.iter().map(|(k, v)| {
                 let (datatype, value) = match v {
-                    FieldValue::I64(v) => (ColumnDataType::Int64, ValueData::I64Value(*v)),
-                    FieldValue::U64(v) => (ColumnDataType::Uint64, ValueData::U64Value(*v)),
-                    FieldValue::F64(v) => (ColumnDataType::Float64, ValueData::F64Value(*v)),
+                    FieldValue::I64(v) => (int64_column_datatype(), ValueData::I64Value(*v)),
+                    FieldValue::U64(v) => (uint64_column_datatype(), ValueData::U64Value(*v)),
+                    FieldValue::F64(v) => (float64_column_datatype(), ValueData::F64Value(*v)),
                     FieldValue::String(v) => (
-                        ColumnDataType::String,
+                        string_column_datatype(),
                         ValueData::StringValue(v.to_string()),
                     ),
-                    FieldValue::Boolean(v) => (ColumnDataType::Boolean, ValueData::BoolValue(*v)),
+                    FieldValue::Boolean(v) => (boolean_column_datatype(), ValueData::BoolValue(*v)),
                 };
                 (k.to_string(), datatype, value)
             });
@@ -101,8 +105,9 @@ fn unwrap_or_default_precision(precision: Option<Precision>) -> Precision {
 
 #[cfg(test)]
 mod tests {
+    use api::helper::timestamp_millisecond_column_datatype;
     use api::v1::value::ValueData;
-    use api::v1::{ColumnDataType, Rows, SemanticType};
+    use api::v1::{Rows, SemanticType};
 
     use super::*;
     use crate::influxdb::InfluxdbRequest;
@@ -142,7 +147,7 @@ monitor2,host=host4 cpu=66.3,memory=1029 1663840496400340003";
         for (i, column_schema) in schema.iter().enumerate() {
             match &column_schema.column_name[..] {
                 "host" => {
-                    assert_eq!(ColumnDataType::String as i32, column_schema.datatype);
+                    assert_eq!(Some(string_column_datatype()), column_schema.datatype);
                     assert_eq!(SemanticType::Tag as i32, column_schema.semantic_type);
 
                     for (j, row) in rows.iter().enumerate() {
@@ -155,7 +160,7 @@ monitor2,host=host4 cpu=66.3,memory=1029 1663840496400340003";
                     }
                 }
                 "cpu" => {
-                    assert_eq!(ColumnDataType::Float64 as i32, column_schema.datatype);
+                    assert_eq!(Some(float64_column_datatype()), column_schema.datatype);
                     assert_eq!(SemanticType::Field as i32, column_schema.semantic_type);
 
                     for (j, row) in rows.iter().enumerate() {
@@ -168,7 +173,7 @@ monitor2,host=host4 cpu=66.3,memory=1029 1663840496400340003";
                     }
                 }
                 "memory" => {
-                    assert_eq!(ColumnDataType::Float64 as i32, column_schema.datatype);
+                    assert_eq!(Some(float64_column_datatype()), column_schema.datatype);
                     assert_eq!(SemanticType::Field as i32, column_schema.semantic_type);
 
                     for (j, row) in rows.iter().enumerate() {
@@ -182,7 +187,7 @@ monitor2,host=host4 cpu=66.3,memory=1029 1663840496400340003";
                 }
                 "ts" => {
                     assert_eq!(
-                        ColumnDataType::TimestampMillisecond as i32,
+                        Some(timestamp_millisecond_column_datatype()),
                         column_schema.datatype
                     );
                     assert_eq!(SemanticType::Timestamp as i32, column_schema.semantic_type);
@@ -217,7 +222,7 @@ monitor2,host=host4 cpu=66.3,memory=1029 1663840496400340003";
         for (i, column_schema) in schema.iter().enumerate() {
             match &column_schema.column_name[..] {
                 "host" => {
-                    assert_eq!(ColumnDataType::String as i32, column_schema.datatype);
+                    assert_eq!(Some(string_column_datatype()), column_schema.datatype);
                     assert_eq!(SemanticType::Tag as i32, column_schema.semantic_type);
 
                     for (j, row) in rows.iter().enumerate() {
@@ -230,7 +235,7 @@ monitor2,host=host4 cpu=66.3,memory=1029 1663840496400340003";
                     }
                 }
                 "cpu" => {
-                    assert_eq!(ColumnDataType::Float64 as i32, column_schema.datatype);
+                    assert_eq!(Some(float64_column_datatype()), column_schema.datatype);
                     assert_eq!(SemanticType::Field as i32, column_schema.semantic_type);
 
                     for (j, row) in rows.iter().enumerate() {
@@ -243,7 +248,7 @@ monitor2,host=host4 cpu=66.3,memory=1029 1663840496400340003";
                     }
                 }
                 "memory" => {
-                    assert_eq!(ColumnDataType::Float64 as i32, column_schema.datatype);
+                    assert_eq!(Some(float64_column_datatype()), column_schema.datatype);
                     assert_eq!(SemanticType::Field as i32, column_schema.semantic_type);
 
                     for (j, row) in rows.iter().enumerate() {
@@ -257,7 +262,7 @@ monitor2,host=host4 cpu=66.3,memory=1029 1663840496400340003";
                 }
                 "ts" => {
                     assert_eq!(
-                        ColumnDataType::TimestampMillisecond as i32,
+                        Some(timestamp_millisecond_column_datatype()),
                         column_schema.datatype
                     );
                     assert_eq!(SemanticType::Timestamp as i32, column_schema.semantic_type);

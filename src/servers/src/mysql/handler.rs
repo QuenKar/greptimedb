@@ -23,7 +23,7 @@ use chrono::{NaiveDate, NaiveDateTime};
 use common_catalog::parse_catalog_and_schema_from_db_string;
 use common_error::ext::ErrorExt;
 use common_query::Output;
-use common_telemetry::{error, logging, timer, warn};
+use common_telemetry::{error, info, logging, timer, warn};
 use datatypes::prelude::ConcreteDataType;
 use metrics::increment_counter;
 use opensrv_mysql::{
@@ -205,9 +205,9 @@ impl<W: AsyncWrite + Send + Sync + Unpin> AsyncMysqlShim<W> for MysqlInstanceShi
     ) -> Result<()> {
         let query_ctx = self.session.new_query_context();
         let (query, param_num) = replace_placeholders(raw_query);
-
+        info!("Mysql prepare query: {}", query);
         let statement = validate_query(raw_query).await?;
-
+        info!("Mysql prepare statement: {:?}", statement);
         // We have to transform the placeholder, because DataFusion only parses placeholders
         // in the form of "$i", it can't process "?" right now.
         let statement = transform_placeholders(statement);
@@ -242,7 +242,7 @@ impl<W: AsyncWrite + Send + Sync + Unpin> AsyncMysqlShim<W> for MysqlInstanceShi
             plan,
             schema,
         });
-
+        info!("Mysql prepare statement id: {}", stmt_id);
         w.reply(stmt_id, &params, &[]).await?;
         increment_counter!(
             crate::metrics::METRIC_MYSQL_PREPARED_COUNT,

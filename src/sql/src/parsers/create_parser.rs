@@ -16,6 +16,7 @@ use std::cmp::Ordering;
 use std::collections::HashMap;
 
 use common_catalog::consts::default_engine;
+use common_telemetry::info;
 use itertools::Itertools;
 use once_cell::sync::Lazy;
 use snafu::{ensure, OptionExt, ResultExt};
@@ -277,6 +278,7 @@ impl<'a> ParserContext<'a> {
     }
 
     fn parse_columns(&mut self) -> Result<(Vec<ColumnDef>, Vec<TableConstraint>)> {
+        info!("parse_columns");
         let mut columns = vec![];
         let mut constraints = vec![];
         if !self.parser.consume_token(&Token::LParen) || self.parser.consume_token(&Token::RParen) {
@@ -314,6 +316,7 @@ impl<'a> ParserContext<'a> {
         columns: &mut Vec<ColumnDef>,
         constraints: &mut Vec<TableConstraint>,
     ) -> Result<()> {
+        info!("parse column def");
         let mut column = self.parse_column_def().context(SyntaxSnafu)?;
 
         let mut time_index_opt_idx = None;
@@ -411,6 +414,7 @@ impl<'a> ParserContext<'a> {
         }
 
         let data_type = parser.parse_data_type()?;
+        info!("parsed data_type: {:?}", data_type);
         let collation = if parser.parse_keyword(Keyword::COLLATE) {
             Some(parser.parse_object_name()?)
         } else {

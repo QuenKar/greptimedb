@@ -14,6 +14,7 @@
 
 use std::fmt::Display;
 use std::hash::Hash;
+use std::str::FromStr;
 
 use rust_decimal::Decimal as RustDecimal;
 use serde::{Deserialize, Serialize};
@@ -107,6 +108,15 @@ impl PartialOrd for Decimal128 {
 impl Ord for Decimal128 {
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
         self.value.cmp(&other.value)
+    }
+}
+
+impl FromStr for Decimal128 {
+    type Err = rust_decimal::Error;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let rd = RustDecimal::from_str(s)?;
+        Ok(Self::from(rd))
     }
 }
 

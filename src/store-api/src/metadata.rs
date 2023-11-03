@@ -81,7 +81,10 @@ impl ColumnMetadata {
                     .context(ConvertDatatypesSnafu)?,
             )
         };
-        let data_type = ColumnDataTypeWrapper::new(column_def.data_type()).into();
+        let column_datatype = column_def.data_type.context(InvalidRawRegionRequestSnafu {
+            err: "column data_type not found",
+        })?;
+        let data_type = ColumnDataTypeWrapper::new(column_datatype).into();
         let column_schema = ColumnSchema::new(column_def.name, data_type, column_def.is_nullable)
             .with_default_constraint(default_constrain)
             .context(ConvertDatatypesSnafu)?;

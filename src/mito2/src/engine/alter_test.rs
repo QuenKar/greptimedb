@@ -14,8 +14,9 @@
 
 use std::collections::HashMap;
 
+use api::helper::string_column_datatype;
 use api::v1::value::ValueData;
-use api::v1::{ColumnDataType, Row, Rows, SemanticType};
+use api::v1::{Row, Rows, SemanticType};
 use common_recordbatch::RecordBatches;
 use datatypes::prelude::ConcreteDataType;
 use datatypes::schema::ColumnSchema;
@@ -218,7 +219,7 @@ async fn test_put_after_alter() {
     // Push tag_1 to schema.
     column_schemas.push(api::v1::ColumnSchema {
         column_name: "tag_1".to_string(),
-        datatype: ColumnDataType::String as i32,
+        datatype: Some(string_column_datatype()),
         semantic_type: SemanticType::Tag as i32,
     });
     // Put with new schema.

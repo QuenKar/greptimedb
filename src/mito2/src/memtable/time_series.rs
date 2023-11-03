@@ -901,9 +901,11 @@ mod tests {
             .iter()
             .map(|c| api::v1::ColumnSchema {
                 column_name: c.column_schema.name.clone(),
-                datatype: ColumnDataTypeWrapper::try_from(c.column_schema.data_type.clone())
-                    .unwrap()
-                    .datatype() as i32,
+                datatype: Some(
+                    ColumnDataTypeWrapper::try_from(c.column_schema.data_type.clone())
+                        .unwrap()
+                        .datatype(),
+                ),
                 semantic_type: c.semantic_type as i32,
             })
             .collect();

@@ -18,7 +18,7 @@ use std::collections::HashMap;
 
 use api::helper::ColumnDataTypeWrapper;
 use api::v1::value::ValueData;
-use api::v1::{Column, ColumnDataType, ColumnSchema, Row, Rows, SemanticType, Value};
+use api::v1::{Column, ColumnDataType, ColumnSchema, DataType, Row, Rows, SemanticType, Value};
 use common_base::BitVec;
 use datatypes::prelude::ConcreteDataType;
 use datatypes::vectors::VectorRef;
@@ -44,7 +44,7 @@ pub fn columns_to_rows(columns: Vec<Column>, row_count: u32) -> Result<Rows> {
     for column in columns {
         let column_schema = ColumnSchema {
             column_name: column.column_name.clone(),
-            datatype: column.datatype,
+            datatype: column.datatype.clone(),
             semantic_type: column.semantic_type,
         };
         schema.push(column_schema);
@@ -59,13 +59,14 @@ fn push_column_to_rows(column: Column, rows: &mut [Row]) -> Result<()> {
     let null_mask = BitVec::from_vec(column.null_mask);
     let column_type = ColumnDataTypeWrapper::try_new(column.datatype)
         .context(ColumnDataTypeSnafu)?
-        .datatype();
+        .datatype()
+        .data_type();
     let column_values = column.values.unwrap_or_default();
 
     macro_rules! push_column_values_match_types {
         ($( ($arm:tt, $value_data_variant:tt, $field_name:tt), )*) => { match column_type { $(
 
-        ColumnDataType::$arm => {
+        DataType::$arm => {
             let row_count = rows.len();
             let actual_row_count = null_mask.count_ones() + column_values.$field_name.len();
             ensure!(
@@ -177,6 +178,7 @@ fn push_column_to_rows(column: Column, rows: &mut [Row]) -> Result<()> {
             DurationNanosecondValue,
             duration_nanosecond_values
         ),
+        (Decimal128, Decimal128Value, decimal_values),
     );
 
     Ok(())
@@ -252,6 +254,7 @@ fn data_type(data_type: ConcreteDataType) -> Result<ColumnDataType> {
 
 #[cfg(test)]
 mod tests {
+    use api::helper::{int32_column_datatype, string_column_datatype};
     use api::v1::column::Values;
     use api::v1::SemanticType;
     use common_base::bit_vec::prelude::*;
@@ -263,7 +266,7 @@ mod tests {
         let columns = vec![
             Column {
                 column_name: String::from("col1"),
-                datatype: ColumnDataType::Int32.into(),
+                datatype: Some(int32_column_datatype()),
                 semantic_type: SemanticType::Field.into(),
                 null_mask: bitvec![u8, Lsb0; 1, 0, 1].into_vec(),
                 values: Some(Values {
@@ -273,7 +276,7 @@ mod tests {
             },
             Column {
                 column_name: String::from("col2"),
-                datatype: ColumnDataType::String.into(),
+                datatype: Some(string_column_datatype()),
                 semantic_type: SemanticType::Tag.into(),
                 null_mask: vec![],
                 values: Some(Values {
@@ -293,10 +296,10 @@ mod tests {
 
         assert_eq!(rows.schema.len(), 2);
         assert_eq!(rows.schema[0].column_name, "col1");
-        assert_eq!(rows.schema[0].datatype, ColumnDataType::Int32 as i32);
+        assert_eq!(rows.schema[0].datatype, Some(int32_column_datatype()));
         assert_eq!(rows.schema[0].semantic_type, SemanticType::Field as i32);
         assert_eq!(rows.schema[1].column_name, "col2");
-        assert_eq!(rows.schema[1].datatype, ColumnDataType::String as i32);
+        assert_eq!(rows.schema[1].datatype, Some(string_column_datatype()));
         assert_eq!(rows.schema[1].semantic_type, SemanticType::Tag as i32);
 
         assert_eq!(rows.rows.len(), 3);
@@ -328,7 +331,7 @@ mod tests {
         // wrong type
         let columns = vec![Column {
             column_name: String::from("col1"),
-            datatype: ColumnDataType::Int32.into(),
+            datatype: Some(int32_column_datatype()),
             semantic_type: SemanticType::Field.into(),
             null_mask: bitvec![u8, Lsb0; 1, 0, 1].into_vec(),
             values: Some(Values {
@@ -342,7 +345,7 @@ mod tests {
         // wrong row count
         let columns = vec![Column {
             column_name: String::from("col1"),
-            datatype: ColumnDataType::Int32.into(),
+            datatype: Some(int32_column_datatype()),
             semantic_type: SemanticType::Field.into(),
             null_mask: bitvec![u8, Lsb0; 0, 0, 1].into_vec(),
             values: Some(Values {
@@ -356,7 +359,7 @@ mod tests {
         // wrong row count
         let columns = vec![Column {
             column_name: String::from("col1"),
-            datatype: ColumnDataType::Int32.into(),
+            datatype: Some(int32_column_datatype()),
             semantic_type: SemanticType::Field.into(),
             null_mask: vec![],
             values: Some(Values {

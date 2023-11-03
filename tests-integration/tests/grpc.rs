@@ -12,12 +12,16 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use api::helper::{
+    float64_column_datatype, int64_column_datatype, string_column_datatype,
+    timestamp_millisecond_column_datatype,
+};
 use api::v1::alter_expr::Kind;
 use api::v1::promql_request::Promql;
 use api::v1::{
-    column, AddColumn, AddColumns, AlterExpr, Basic, Column, ColumnDataType, ColumnDef,
-    CreateTableExpr, InsertRequest, InsertRequests, PromInstantQuery, PromRangeQuery,
-    PromqlRequest, RequestHeader, SemanticType, TableId,
+    column, AddColumn, AddColumns, AlterExpr, Basic, Column, ColumnDef, CreateTableExpr,
+    InsertRequest, InsertRequests, PromInstantQuery, PromRangeQuery, PromqlRequest, RequestHeader,
+    SemanticType, TableId,
 };
 use auth::user_provider_from_option;
 use client::{Client, Database, DEFAULT_CATALOG_NAME, DEFAULT_SCHEMA_NAME};
@@ -255,7 +259,7 @@ fn expect_data() -> (Column, Column, Column, Column) {
             ..Default::default()
         }),
         semantic_type: SemanticType::Tag as i32,
-        datatype: ColumnDataType::String as i32,
+        datatype: Some(string_column_datatype()),
         ..Default::default()
     };
     let expected_cpu_col = Column {
@@ -266,7 +270,7 @@ fn expect_data() -> (Column, Column, Column, Column) {
         }),
         null_mask: vec![2],
         semantic_type: SemanticType::Field as i32,
-        datatype: ColumnDataType::Float64 as i32,
+        datatype: Some(float64_column_datatype()),
     };
     let expected_mem_col = Column {
         column_name: "memory".to_string(),
@@ -276,7 +280,7 @@ fn expect_data() -> (Column, Column, Column, Column) {
         }),
         null_mask: vec![4],
         semantic_type: SemanticType::Field as i32,
-        datatype: ColumnDataType::Float64 as i32,
+        datatype: Some(float64_column_datatype()),
     };
     let expected_ts_col = Column {
         column_name: "ts".to_string(),
@@ -285,7 +289,7 @@ fn expect_data() -> (Column, Column, Column, Column) {
             ..Default::default()
         }),
         semantic_type: SemanticType::Timestamp as i32,
-        datatype: ColumnDataType::TimestampMillisecond as i32,
+        datatype: Some(timestamp_millisecond_column_datatype()),
         ..Default::default()
     };
 
@@ -313,7 +317,7 @@ pub async fn test_insert_and_select(store_type: StorageType) {
     //alter
     let add_column = ColumnDef {
         name: "test_column".to_string(),
-        data_type: ColumnDataType::Int64.into(),
+        data_type: Some(int64_column_datatype()),
         is_nullable: true,
         default_constraint: vec![],
         semantic_type: SemanticType::Field as i32,
@@ -404,7 +408,7 @@ fn testing_create_expr() -> CreateTableExpr {
     let column_defs = vec![
         ColumnDef {
             name: "host".to_string(),
-            data_type: ColumnDataType::String as i32,
+            data_type: Some(string_column_datatype()),
             is_nullable: false,
             default_constraint: vec![],
             semantic_type: SemanticType::Tag as i32,
@@ -412,7 +416,7 @@ fn testing_create_expr() -> CreateTableExpr {
         },
         ColumnDef {
             name: "cpu".to_string(),
-            data_type: ColumnDataType::Float64 as i32,
+            data_type: Some(float64_column_datatype()),
             is_nullable: true,
             default_constraint: vec![],
             semantic_type: SemanticType::Field as i32,
@@ -420,7 +424,7 @@ fn testing_create_expr() -> CreateTableExpr {
         },
         ColumnDef {
             name: "memory".to_string(),
-            data_type: ColumnDataType::Float64 as i32,
+            data_type: Some(float64_column_datatype()),
             is_nullable: true,
             default_constraint: vec![],
             semantic_type: SemanticType::Field as i32,
@@ -428,7 +432,7 @@ fn testing_create_expr() -> CreateTableExpr {
         },
         ColumnDef {
             name: "ts".to_string(),
-            data_type: ColumnDataType::TimestampMillisecond as i32, // timestamp
+            data_type: Some(timestamp_millisecond_column_datatype()), // timestamp
             is_nullable: false,
             default_constraint: vec![],
             semantic_type: SemanticType::Timestamp as i32,

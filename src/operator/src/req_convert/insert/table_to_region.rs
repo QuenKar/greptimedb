@@ -53,9 +53,10 @@ mod tests {
     use std::collections::HashMap;
     use std::sync::Arc;
 
+    use api::helper::int32_column_datatype;
     use api::v1::region::InsertRequest as RegionInsertRequest;
     use api::v1::value::ValueData;
-    use api::v1::{ColumnDataType, ColumnSchema, Row, SemanticType, Value};
+    use api::v1::{ColumnSchema, Row, SemanticType, Value};
     use common_catalog::consts::{DEFAULT_CATALOG_NAME, DEFAULT_SCHEMA_NAME};
     use common_meta::key::catalog_name::{CatalogManager, CatalogNameKey};
     use common_meta::key::schema_name::{SchemaManager, SchemaNameKey};
@@ -154,7 +155,7 @@ mod tests {
             rows: Some(Rows {
                 schema: vec![ColumnSchema {
                     column_name: "a".to_string(),
-                    datatype: ColumnDataType::Int32 as i32,
+                    datatype: Some(int32_column_datatype()),
                     semantic_type: SemanticType::Tag as i32,
                 }],
                 rows: rows

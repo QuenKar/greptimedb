@@ -467,8 +467,9 @@ impl fmt::Display for RegionRequest {
 
 #[cfg(test)]
 mod tests {
+    use api::helper::string_column_datatype;
     use api::v1::region::RegionColumnDef;
-    use api::v1::{ColumnDataType, ColumnDef};
+    use api::v1::ColumnDef;
     use datatypes::prelude::ConcreteDataType;
     use datatypes::schema::ColumnSchema;
 
@@ -529,7 +530,7 @@ mod tests {
                     column_def: Some(RegionColumnDef {
                         column_def: Some(ColumnDef {
                             name: "a".to_string(),
-                            data_type: ColumnDataType::String as i32,
+                            data_type: Some(string_column_datatype()),
                             is_nullable: true,
                             default_constraint: vec![],
                             semantic_type: SemanticType::Field as i32,

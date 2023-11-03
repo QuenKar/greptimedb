@@ -15,12 +15,13 @@
 //! Scripts table
 use std::sync::Arc;
 
-use api::helper::ColumnDataTypeWrapper;
+use api::helper::{
+    string_column_datatype, timestamp_millisecond_column_datatype, ColumnDataTypeWrapper,
+};
 use api::v1::greptime_request::Request;
 use api::v1::value::ValueData;
 use api::v1::{
-    ColumnDataType, ColumnSchema as PbColumnSchema, Row, RowInsertRequest, RowInsertRequests, Rows,
-    SemanticType,
+    ColumnSchema as PbColumnSchema, Row, RowInsertRequest, RowInsertRequests, Rows, SemanticType,
 };
 use catalog::error::CompileScriptInternalSnafu;
 use common_error::ext::{BoxedError, ErrorExt};
@@ -300,32 +301,32 @@ fn build_insert_column_schemas() -> Vec<PbColumnSchema> {
         // The schema that script belongs to.
         PbColumnSchema {
             column_name: "schema".to_string(),
-            datatype: ColumnDataType::String.into(),
+            datatype: Some(string_column_datatype()),
             semantic_type: SemanticType::Tag.into(),
         },
         PbColumnSchema {
             column_name: "name".to_string(),
-            datatype: ColumnDataType::String.into(),
+            datatype: Some(string_column_datatype()),
             semantic_type: SemanticType::Tag.into(),
         },
         PbColumnSchema {
             column_name: "engine".to_string(),
-            datatype: ColumnDataType::String.into(),
+            datatype: Some(string_column_datatype()),
             semantic_type: SemanticType::Tag.into(),
         },
         PbColumnSchema {
             column_name: "script".to_string(),
-            datatype: ColumnDataType::String.into(),
+            datatype: Some(string_column_datatype()),
             semantic_type: SemanticType::Field.into(),
         },
         PbColumnSchema {
             column_name: "greptime_timestamp".to_string(),
-            datatype: ColumnDataType::TimestampMillisecond.into(),
+            datatype: Some(timestamp_millisecond_column_datatype()),
             semantic_type: SemanticType::Timestamp.into(),
         },
         PbColumnSchema {
             column_name: "gmt_modified".to_string(),
-            datatype: ColumnDataType::TimestampMillisecond.into(),
+            datatype: Some(timestamp_millisecond_column_datatype()),
             semantic_type: SemanticType::Field.into(),
         },
     ]
