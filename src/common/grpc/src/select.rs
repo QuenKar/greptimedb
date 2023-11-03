@@ -17,13 +17,14 @@ use api::v1::column::Values;
 use common_base::BitVec;
 use datatypes::types::{DurationType, IntervalType, TimeType, TimestampType, WrapperType};
 use datatypes::vectors::{
-    BinaryVector, BooleanVector, DateTimeVector, DateVector, DurationMicrosecondVector,
-    DurationMillisecondVector, DurationNanosecondVector, DurationSecondVector, Float32Vector,
-    Float64Vector, Int16Vector, Int32Vector, Int64Vector, Int8Vector, IntervalDayTimeVector,
-    IntervalMonthDayNanoVector, IntervalYearMonthVector, StringVector, TimeMicrosecondVector,
-    TimeMillisecondVector, TimeNanosecondVector, TimeSecondVector, TimestampMicrosecondVector,
-    TimestampMillisecondVector, TimestampNanosecondVector, TimestampSecondVector, UInt16Vector,
-    UInt32Vector, UInt64Vector, UInt8Vector, VectorRef,
+    BinaryVector, BooleanVector, DateTimeVector, DateVector, Decimal128Vector,
+    DurationMicrosecondVector, DurationMillisecondVector, DurationNanosecondVector,
+    DurationSecondVector, Float32Vector, Float64Vector, Int16Vector, Int32Vector, Int64Vector,
+    Int8Vector, IntervalDayTimeVector, IntervalMonthDayNanoVector, IntervalYearMonthVector,
+    StringVector, TimeMicrosecondVector, TimeMillisecondVector, TimeNanosecondVector,
+    TimeSecondVector, TimestampMicrosecondVector, TimestampMillisecondVector,
+    TimestampNanosecondVector, TimestampSecondVector, UInt16Vector, UInt32Vector, UInt64Vector,
+    UInt8Vector, VectorRef,
 };
 use snafu::OptionExt;
 
@@ -71,6 +72,7 @@ macro_rules! convert_arrow_array_to_grpc_vals {
                     return Ok(vals);
                 },
             )+
+
             ConcreteDataType::Null(_) | ConcreteDataType::List(_) | ConcreteDataType::Dictionary(_) | ConcreteDataType::Decimal128(_) => unreachable!("Should not send {:?} in gRPC", $data_type),
         }
     }};

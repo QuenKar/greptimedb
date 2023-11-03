@@ -1,0 +1,23 @@
+create table decimals(
+    d decimal(10,6),
+    ts timestamp time index,
+);
+
+Affected Rows: 0
+
+insert into decimals values(0.12345678, '2019-01-01 00:00:00');
+
+Affected Rows: 1
+
+select * from decimals;
+
++--------------+---------------------+
+| d            | ts                  |
++--------------+---------------------+
+| 0.1234567800 | 2019-01-01T00:00:00 |
++--------------+---------------------+
+
+drop table decimals;
+
+Affected Rows: 0
+
