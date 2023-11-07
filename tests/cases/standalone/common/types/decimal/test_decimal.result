@@ -1,0 +1,213 @@
+-- port from DuckDB test/sql/types/decimal/test_decimal.test
+-- description: Test basic decimals
+-- default decimal type is (38,10)
+SELECT arrow_typeof('0.1'::DECIMAL);
+
++---------------------------+
+| arrow_typeof(Utf8("0.1")) |
++---------------------------+
+| Decimal128(38, 10)        |
++---------------------------+
+
+SELECT '0.1'::DECIMAL::VARCHAR, '922337203685478.758'::DECIMAL::VARCHAR;
+
++--------------+-----------------------------+
+| Utf8("0.1")  | Utf8("922337203685478.758") |
++--------------+-----------------------------+
+| 0.1000000000 | 922337203685478.7580000000  |
++--------------+-----------------------------+
+
+SELECT '-0.1'::DECIMAL::VARCHAR, '-922337203685478.758'::DECIMAL::VARCHAR;
+
++---------------+------------------------------+
+| Utf8("-0.1")  | Utf8("-922337203685478.758") |
++---------------+------------------------------+
+| -0.1000000000 | -922337203685478.7580000000  |
++---------------+------------------------------+
+
+-- some more difficult string conversions
+SELECT '   7   '::DECIMAL::VARCHAR, '9.'::DECIMAL::VARCHAR, '.1'::DECIMAL::VARCHAR;
+
++-----------------+--------------+--------------+
+| Utf8("   7   ") | Utf8("9.")   | Utf8(".1")   |
++-----------------+--------------+--------------+
+| 7.0000000000    | 9.0000000000 | 0.1000000000 |
++-----------------+--------------+--------------+
+
+-- trailing decimals get truncated
+SELECT '0.123456789'::DECIMAL::VARCHAR, '-0.123456789'::DECIMAL::VARCHAR;
+
++---------------------+----------------------+
+| Utf8("0.123456789") | Utf8("-0.123456789") |
++---------------------+----------------------+
+| 0.1234567890        | -0.1234567890        |
++---------------------+----------------------+
+
+SELECT '9223372036854788.758'::DECIMAL;
+
++------------------------------+
+| Utf8("9223372036854788.758") |
++------------------------------+
+| 9223372036854788.7580000000  |
++------------------------------+
+
+-- trailing decimals with scale=0
+SELECT '0.1'::DECIMAL(3, 0)::VARCHAR;
+
++-------------+
+| Utf8("0.1") |
++-------------+
+| 0           |
++-------------+
+
+-- default scale is 0
+SELECT '123.4'::DECIMAL(9)::VARCHAR;
+
++---------------+
+| Utf8("123.4") |
++---------------+
+| 123           |
++---------------+
+
+-- scale = width also works
+SELECT '0.1'::DECIMAL(3, 3)::VARCHAR, '-0.1'::DECIMAL(3, 3)::VARCHAR;
+
++-------------+--------------+
+| Utf8("0.1") | Utf8("-0.1") |
++-------------+--------------+
+| 0.100       | -0.100       |
++-------------+--------------+
+
+-- any value >= 1 becomes out of range, though
+SELECT '1'::DECIMAL(3, 3)::VARCHAR;
+
++-----------+
+| Utf8("1") |
++-----------+
+| .100      |
++-----------+
+
+SELECT '-1'::DECIMAL(3, 3)::VARCHAR;
+
++------------+
+| Utf8("-1") |
++------------+
+| -.100      |
++------------+
+
+-- repeat the same cast many times
+select '0.1'::decimal::decimal::decimal;
+
++--------------+
+| Utf8("0.1")  |
++--------------+
+| 0.1000000000 |
++--------------+
+
+select '12345.6789'::decimal(3,2);
+
++--------------------+
+| Utf8("12345.6789") |
++--------------------+
+| 1.23               |
++--------------------+
+
+select '12345.6789'::decimal(10,6)::decimal(3,2);
+
++--------------------+
+| Utf8("12345.6789") |
++--------------------+
+| 1.23               |
++--------------------+
+
+-- string casts of various decimal sizes
+select '123.4'::DECIMAL(4,1)::VARCHAR;
+
++---------------+
+| Utf8("123.4") |
++---------------+
+| 123.4         |
++---------------+
+
+select '2.001'::DECIMAL(4,3)::VARCHAR;
+
++---------------+
+| Utf8("2.001") |
++---------------+
+| 2.001         |
++---------------+
+
+select '123456.789'::DECIMAL(9,3)::VARCHAR;
+
++--------------------+
+| Utf8("123456.789") |
++--------------------+
+| 123456.789         |
++--------------------+
+
+select '123456789'::DECIMAL(9,0)::VARCHAR;
+
++-------------------+
+| Utf8("123456789") |
++-------------------+
+| 123456789         |
++-------------------+
+
+select '123456789'::DECIMAL(18,3)::VARCHAR;
+
++-------------------+
+| Utf8("123456789") |
++-------------------+
+| 123456789.000     |
++-------------------+
+
+select '1701411834604692317316873037.1588410572'::DECIMAL(38,10)::VARCHAR;
+
++-------------------------------------------------+
+| Utf8("1701411834604692317316873037.1588410572") |
++-------------------------------------------------+
+| 1701411834604692317316873037.1588410572         |
++-------------------------------------------------+
+
+select '0'::DECIMAL(38,10)::VARCHAR;
+
++--------------+
+| Utf8("0")    |
++--------------+
+| 0.0000000000 |
++--------------+
+
+select '0.00003'::DECIMAL(38,10)::VARCHAR;
+
++-----------------+
+| Utf8("0.00003") |
++-----------------+
+| 0.0000300000    |
++-----------------+
+
+-- various error conditions
+-- scale is bigger than or equal to width
+SELECT '0.1'::DECIMAL(3, 4);
+
+Error: 3000(PlanQuery), Error during planning: Decimal(precision = 3, scale = 4) should satisfy `0 < precision <= 38`, and `scale <= precision`.
+
+-- cannot have string variable as scale
+SELECT '0.1'::DECIMAL('hello');
+
+Error: 2000(InvalidSyntax), sql parser error: Expected literal int, found: 'hello' at Line: 1, Column 23
+
+-- ...or negative numbers
+SELECT '0.1'::DECIMAL(-17);
+
+Error: 2000(InvalidSyntax), sql parser error: Expected literal int, found: - at Line: 1, Column 23
+
+-- width/scale out of range
+SELECT '0.1'::DECIMAL(1000);
+
+Error: 3000(PlanQuery), Error during planning: Decimal(precision = 232, scale = 0) should satisfy `0 < precision <= 38`, and `scale <= precision`.
+
+-- invalid arguments
+SELECT '0.1'::DECIMAL(1, 2, 3);
+
+Error: 2000(InvalidSyntax), sql parser error: Expected ), found: , at Line: 1, Column 27
+

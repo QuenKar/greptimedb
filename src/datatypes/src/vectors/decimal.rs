@@ -49,6 +49,7 @@ impl Decimal128Vector {
         }
     }
 
+    /// Construct Vector from i128 values
     pub fn from_values<I: IntoIterator<Item = i128>>(iter: I) -> Self {
         Self {
             array: Decimal128Array::from_iter_values(iter),
@@ -78,12 +79,25 @@ impl Decimal128Vector {
         Self::from_array_data(data)
     }
 
+    /// Change the precision and scale of the Decimal128Vector,
+    /// And check precision and scale if compatible.
     pub fn with_precision_and_scale(self, precision: u8, scale: i8) -> Result<Self> {
         let array = self
             .array
             .with_precision_and_scale(precision, scale)
             .context(ArrowPrecisionOrScaleSnafu { precision, scale })?;
         Ok(Self { array })
+    }
+
+    pub fn null_if_overflow_precision(&self, precision: u8) -> Self {
+        Self {
+            array: self.array.null_if_overflow_precision(precision),
+        }
+    }
+
+    /// Return decimal value as string
+    pub fn value_as_string(&self, idx: usize) -> String {
+        self.array.value_as_string(idx)
     }
 
     pub fn as_arrow(&self) -> &Decimal128Array {
@@ -387,5 +401,39 @@ pub mod tests {
                 Value::Decimal128(Decimal128::new_unchecked((i + 1) as i128 * 100, 10, 2))
             )
         }
+    }
+
+    #[test]
+    fn test_decimal128_vector_builder() {
+        let mut decimal_builder = Decimal128VectorBuilder::with_capacity(3);
+        decimal_builder.push(Some(Decimal128::new_unchecked(100, 10, 2)));
+        decimal_builder.push(Some(Decimal128::new_unchecked(200, 10, 2)));
+        decimal_builder.push(Some(Decimal128::new_unchecked(300, 10, 2)));
+        let decimal_vector = decimal_builder
+            .finish()
+            .with_precision_and_scale(10, 2)
+            .unwrap();
+        assert_eq!(decimal_vector.len(), 3);
+        assert_eq!(
+            decimal_vector.get(0),
+            Value::Decimal128(Decimal128::new_unchecked(100, 10, 2))
+        );
+        assert_eq!(
+            decimal_vector.get(1),
+            Value::Decimal128(Decimal128::new_unchecked(200, 10, 2))
+        );
+        assert_eq!(
+            decimal_vector.get(2),
+            Value::Decimal128(Decimal128::new_unchecked(300, 10, 2))
+        );
+
+        // push value error
+        let mut decimal_builder = Decimal128VectorBuilder::with_capacity(3);
+        decimal_builder.push(Some(Decimal128::new_unchecked(123, 10, 2)));
+        decimal_builder.push(Some(Decimal128::new_unchecked(1234, 10, 2)));
+        decimal_builder.push(Some(Decimal128::new_unchecked(12345, 10, 2)));
+        let decimal_vector = decimal_builder.finish().with_precision_and_scale(3, 2);
+        assert!(decimal_vector.is_ok());
+        // However, "1234" and "12345" values exceed the range that Decimal(3, 2) can represent.
     }
 }

@@ -18,6 +18,8 @@ mod find_unique;
 mod replicate;
 mod take;
 
+use std::sync::Arc;
+
 use common_base::BitVec;
 
 use crate::error::{self, Result};
@@ -99,13 +101,7 @@ macro_rules! impl_scalar_vector_op {
     )+};
 }
 
-impl_scalar_vector_op!(
-    BinaryVector,
-    BooleanVector,
-    ListVector,
-    StringVector,
-    Decimal128Vector
-);
+impl_scalar_vector_op!(BinaryVector, BooleanVector, ListVector, StringVector);
 
 impl<T: LogicalPrimitiveType> VectorOp for PrimitiveVector<T> {
     fn replicate(&self, offsets: &[usize]) -> VectorRef {
@@ -128,6 +124,36 @@ impl<T: LogicalPrimitiveType> VectorOp for PrimitiveVector<T> {
 
     fn take(&self, indices: &UInt32Vector) -> Result<VectorRef> {
         take::take_indices!(self, PrimitiveVector<T>, indices)
+    }
+}
+
+impl VectorOp for Decimal128Vector {
+    fn replicate(&self, offsets: &[usize]) -> VectorRef {
+        replicate::replicate_scalar(self, offsets)
+    }
+
+    fn find_unique(&self, selected: &mut BitVec, prev_vector: Option<&dyn Vector>) {
+        let prev_vector =
+            prev_vector.map(|pv| pv.as_any().downcast_ref::<Decimal128Vector>().unwrap());
+        find_unique::find_unique_scalar(self, selected, prev_vector);
+    }
+
+    fn filter(&self, filter: &BooleanVector) -> Result<VectorRef> {
+        filter::filter_non_constant!(self, Decimal128Vector, filter)
+    }
+
+    fn cast(&self, to_type: &ConcreteDataType) -> Result<VectorRef> {
+        cast::cast_non_constant!(self, to_type).map(|v| match to_type {
+            ConcreteDataType::Decimal128(d) => {
+                let v = v.as_any().downcast_ref::<Decimal128Vector>().unwrap();
+                Arc::new(v.null_if_overflow_precision(d.precision()))
+            }
+            _ => v,
+        })
+    }
+
+    fn take(&self, indices: &UInt32Vector) -> Result<VectorRef> {
+        take::take_indices!(self, Decimal128Vector, indices)
     }
 }
 

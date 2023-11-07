@@ -369,7 +369,7 @@ pub fn to_null_scalar_value(output_type: &ConcreteDataType) -> Result<ScalarValu
         ),
         ConcreteDataType::Time(t) => time_to_scalar_value(t.unit(), None)?,
         ConcreteDataType::Duration(d) => duration_to_scalar_value(d.unit(), None),
-        ConcreteDataType::Decimal128(_) => ScalarValue::Decimal128(None, 0, 0),
+        ConcreteDataType::Decimal128(d) => ScalarValue::Decimal128(None, d.precision(), d.scale()),
     })
 }
 
@@ -546,6 +546,7 @@ impl_try_from_value!(Time, Time);
 impl_try_from_value!(DateTime, DateTime);
 impl_try_from_value!(Timestamp, Timestamp);
 impl_try_from_value!(Interval, Interval);
+impl_try_from_value!(Duration, Duration);
 impl_try_from_value!(Decimal128, Decimal128);
 
 macro_rules! impl_value_from {
@@ -2254,7 +2255,7 @@ mod tests {
 
     #[test]
     fn test_value_ref_estimated_size() {
-        assert_eq!(std::mem::size_of::<ValueRef>(), 24);
+        assert_eq!(std::mem::size_of::<ValueRef>(), 48);
 
         check_value_ref_size_eq(&ValueRef::Boolean(true), 1);
         check_value_ref_size_eq(&ValueRef::UInt8(1), 1);

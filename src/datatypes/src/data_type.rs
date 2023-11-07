@@ -246,6 +246,13 @@ impl ConcreteDataType {
         }
     }
 
+    pub fn as_decimal(&self) -> Option<DecimalType> {
+        match self {
+            ConcreteDataType::Decimal128(d) => Some(*d),
+            _ => None,
+        }
+    }
+
     /// Checks if the data type can cast to another data type.
     pub fn can_arrow_type_cast_to(&self, to_type: &ConcreteDataType) -> bool {
         let array = arrow_array::new_empty_array(&self.as_arrow_type());
