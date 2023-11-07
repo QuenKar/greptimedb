@@ -32,6 +32,7 @@ use crate::serialize::Serializable;
 use crate::value::{Value, ValueRef};
 use crate::vectors;
 
+/// Decimal128Vector is a vector keep i128 values with precision and scale.
 #[derive(Debug, PartialEq)]
 pub struct Decimal128Vector {
     array: Decimal128Array,
@@ -49,6 +50,20 @@ impl Decimal128Vector {
     }
 
     pub fn from_values<I: IntoIterator<Item = i128>>(iter: I) -> Self {
+        Self {
+            array: Decimal128Array::from_iter_values(iter),
+        }
+    }
+
+    pub fn from_slice<P: AsRef<[i128]>>(slice: P) -> Self {
+        let iter = slice.as_ref().iter().copied();
+        Self {
+            array: Decimal128Array::from_iter_values(iter),
+        }
+    }
+
+    pub fn from_wrapper_slice<P: AsRef<[Decimal128]>>(slice: P) -> Self {
+        let iter = slice.as_ref().iter().copied().map(|v| v.val());
         Self {
             array: Decimal128Array::from_iter_values(iter),
         }
@@ -123,7 +138,7 @@ impl Vector for Decimal128Vector {
         self.array.is_null(row)
     }
 
-    fn slice(&self, offset: usize, length: usize) -> super::VectorRef {
+    fn slice(&self, offset: usize, length: usize) -> VectorRef {
         let data = self.array.to_data().slice(offset, length);
         Arc::new(Self::from_array_data(data))
     }
@@ -226,6 +241,7 @@ impl ScalarVector for Decimal128Vector {
             ArrowDataType::Decimal128(precision, scale) => {
                 // Safety: The index have been checked by `is_valid()`.
                 let value = unsafe { self.array.value_unchecked(idx) };
+                // Safety: The precision and scale have been checked by ArrowDataType.
                 Some(Decimal128::new_unchecked(value, *precision, *scale))
             }
             _ => None,
@@ -330,6 +346,19 @@ pub mod tests {
         let expect = Decimal128Vector::from_values(vec![123, 456]);
 
         assert_eq!(decimal_vector, expect);
+    }
+
+    #[test]
+    fn test_from_slice() {
+        let decimal_vector = Decimal128Vector::from_slice(&[123, 456]);
+        let decimal_vector2 = Decimal128Vector::from_wrapper_slice(&[
+            Decimal128::new_unchecked(123, 10, 2),
+            Decimal128::new_unchecked(456, 10, 2),
+        ]);
+        let expect = Decimal128Vector::from_values(vec![123, 456]);
+
+        assert_eq!(decimal_vector, expect);
+        assert_eq!(decimal_vector2, expect);
     }
 
     #[test]
