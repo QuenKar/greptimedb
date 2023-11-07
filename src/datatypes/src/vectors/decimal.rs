@@ -218,7 +218,7 @@ impl ScalarVector for Decimal128Vector {
     type Builder = Decimal128VectorBuilder;
 
     fn get_data(&self, idx: usize) -> Option<Self::RefItem<'_>> {
-        if self.array.is_valid(idx) {
+        if !self.array.is_valid(idx) {
             return None;
         }
 
@@ -315,3 +315,48 @@ impl ScalarVectorBuilder for Decimal128VectorBuilder {
 }
 
 vectors::impl_try_from_arrow_array_for_vector!(Decimal128Array, Decimal128Vector);
+
+#[cfg(test)]
+pub mod tests {
+    use arrow_array::Decimal128Array;
+    use common_decimal::Decimal128;
+
+    use super::*;
+
+    #[test]
+    fn test_from_arrow_decimal128_array() {
+        let decimal_array = Decimal128Array::from(vec![Some(123), Some(456)]);
+        let decimal_vector = Decimal128Vector::from(decimal_array);
+        let expect = Decimal128Vector::from_values(vec![123, 456]);
+
+        assert_eq!(decimal_vector, expect);
+    }
+
+    #[test]
+    fn test_decimal128_vector_basic() {
+        let data = vec![100, 200, 300];
+        // create a decimal vector
+        let decimal_vector = Decimal128Vector::from_values(data.clone())
+            .with_precision_and_scale(10, 2)
+            .unwrap();
+
+        assert_eq!(decimal_vector.len(), 3);
+        // check the first value
+        assert_eq!(
+            decimal_vector.get(0),
+            Value::Decimal128(Decimal128::new_unchecked(100, 10, 2))
+        );
+
+        // iterator for-loop
+        for (i, _) in data.iter().enumerate() {
+            assert_eq!(
+                decimal_vector.get_data(i),
+                Some(Decimal128::new_unchecked((i + 1) as i128 * 100, 10, 2))
+            );
+            assert_eq!(
+                decimal_vector.get(i),
+                Value::Decimal128(Decimal128::new_unchecked((i + 1) as i128 * 100, 10, 2))
+            )
+        }
+    }
+}
