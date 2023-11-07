@@ -143,6 +143,7 @@ common-macro = { path = "src/common/macro" }
 common-mem-prof = { path = "src/common/mem-prof" }
 common-meta = { path = "src/common/meta" }
 common-pprof = { path = "src/common/pprof" }
+common-decimal = { path = "src/common/decimal" }
 common-procedure = { path = "src/common/procedure" }
 common-procedure-test = { path = "src/common/procedure-test" }
 common-query = { path = "src/common/query" }
