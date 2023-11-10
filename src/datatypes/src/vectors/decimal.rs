@@ -352,6 +352,8 @@ pub mod tests {
     use common_decimal::Decimal128;
 
     use super::*;
+    use crate::vectors::operations::VectorOp;
+    use crate::vectors::Int8Vector;
 
     #[test]
     fn test_from_arrow_decimal128_array() {
@@ -434,6 +436,16 @@ pub mod tests {
         decimal_builder.push(Some(Decimal128::new_unchecked(12345, 10, 2)));
         let decimal_vector = decimal_builder.finish().with_precision_and_scale(3, 2);
         assert!(decimal_vector.is_ok());
-        // However, "1234" and "12345" values exceed the range that Decimal(3, 2) can represent.
+    }
+
+    #[test]
+    fn test_cast() {
+        let vector = Int8Vector::from_values(vec![1, 2, 3, 4, 100]);
+        let casted_vector = vector.cast(&ConcreteDataType::decimal128_datatype(3, 1));
+        assert!(casted_vector.is_ok());
+        let vector = casted_vector.unwrap();
+        let array = vector.as_any().downcast_ref::<Decimal128Vector>().unwrap();
+        // because 100 is out of Decimal(3, 1) range, so it will be null
+        assert!(array.is_null(4));
     }
 }

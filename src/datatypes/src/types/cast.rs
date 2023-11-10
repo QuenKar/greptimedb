@@ -175,13 +175,11 @@ mod tests {
     use std::str::FromStr;
 
     use common_base::bytes::StringBytes;
-    use common_decimal::Decimal128;
     use common_time::time::Time;
     use common_time::{Date, DateTime, Timestamp};
     use ordered_float::OrderedFloat;
 
     use super::*;
-    use crate::prelude::Value::Decimal128 as ValueDecimal128;
 
     macro_rules! test_can_cast {
         ($src_value: expr, $($dest_type: ident),+) => {
@@ -316,13 +314,5 @@ mod tests {
             null_datatype,
             string_datatype
         );
-    }
-
-    #[test]
-    fn test_decimal_cast() {
-        let src_value = ValueDecimal128(Decimal128::from_str("12345.6789").unwrap());
-        println!("{}", src_value);
-        let dest_value = cast(src_value, &ConcreteDataType::decimal128_datatype(3, 3)).unwrap();
-        println!("{}", dest_value);
     }
 }
