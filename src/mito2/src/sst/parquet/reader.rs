@@ -15,13 +15,16 @@
 //! Parquet reader.
 
 use std::collections::{HashSet, VecDeque};
+use std::ops::Range;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 use async_trait::async_trait;
+use bytes::Bytes;
 use common_telemetry::debug;
 use common_time::range::TimestampRange;
 use datatypes::arrow::record_batch::RecordBatch;
+use futures::future::BoxFuture;
 use object_store::{ObjectStore, Reader};
 use parquet::arrow::arrow_reader::ParquetRecordBatchReader;
 use parquet::arrow::async_reader::AsyncFileReader;
@@ -34,6 +37,7 @@ use store_api::storage::ColumnId;
 use table::predicate::Predicate;
 use tokio::io::BufReader;
 
+use super::row_group::fetch_byte_ranges_helper;
 use crate::cache::CacheManagerRef;
 use crate::error::{
     ArrowReaderSnafu, InvalidMetadataSnafu, InvalidParquetSnafu, OpenDalSnafu, ReadParquetSnafu,
@@ -174,11 +178,14 @@ impl ParquetReaderBuilder {
             parquet_to_arrow_field_levels(parquet_schema_desc, projection_mask.clone(), hint)
                 .context(ReadParquetSnafu { path: &file_path })?;
 
+        let reader_wrapper =
+            FileReaderWrapper::new(reader, file_path.clone(), self.object_store.clone());
+
         let reader_builder = RowGroupReaderBuilder {
             file_handle: self.file_handle.clone(),
             file_path,
             parquet_meta,
-            file_reader: reader,
+            file_reader: reader_wrapper,
             projection: projection_mask,
             field_levels,
             cache_manager: self.cache_manager.clone(),
@@ -286,7 +293,7 @@ struct RowGroupReaderBuilder {
     /// Metadata of the parquet file.
     parquet_meta: Arc<ParquetMetaData>,
     /// Reader to get data.
-    file_reader: BufReader<Reader>,
+    file_reader: FileReaderWrapper,
     /// Projection mask.
     projection: ProjectionMask,
     /// Field levels to read.
@@ -449,5 +456,42 @@ impl ParquetReader {
         }
 
         Ok(None)
+    }
+}
+
+pub(crate) struct FileReaderWrapper {
+    inner: BufReader<Reader>,
+    file_path: String,
+    object_store: ObjectStore,
+}
+
+impl FileReaderWrapper {
+    pub fn new(reader: BufReader<Reader>, file_path: String, object_store: ObjectStore) -> Self {
+        Self {
+            inner: reader,
+            file_path,
+            object_store,
+        }
+    }
+}
+
+impl AsyncFileReader for FileReaderWrapper {
+    fn get_bytes(&mut self, range: Range<usize>) -> BoxFuture<'_, parquet::errors::Result<Bytes>> {
+        self.inner.get_bytes(range)
+    }
+
+    fn get_byte_ranges(
+        &mut self,
+        ranges: Vec<Range<usize>>,
+    ) -> BoxFuture<'_, parquet::errors::Result<Vec<Bytes>>> {
+        Box::pin(fetch_byte_ranges_helper(
+            self.file_path.clone(),
+            self.object_store.clone(),
+            ranges,
+        ))
+    }
+
+    fn get_metadata(&mut self) -> BoxFuture<'_, parquet::errors::Result<Arc<ParquetMetaData>>> {
+        self.inner.get_metadata()
     }
 }

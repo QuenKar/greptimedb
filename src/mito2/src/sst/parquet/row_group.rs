@@ -14,9 +14,11 @@
 
 //! Ports private structs from [parquet crate](https://github.com/apache/arrow-rs/blob/7e134f4d277c0b62c27529fc15a4739de3ad0afd/parquet/src/arrow/async_reader/mod.rs#L644-L650).
 
+use std::ops::Range;
 use std::sync::Arc;
 
 use bytes::{Buf, Bytes};
+use object_store::ObjectStore;
 use parquet::arrow::arrow_reader::{RowGroups, RowSelection};
 use parquet::arrow::async_reader::AsyncFileReader;
 use parquet::arrow::ProjectionMask;
@@ -336,3 +338,67 @@ impl Iterator for ColumnChunkIterator {
 }
 
 impl PageIterator for ColumnChunkIterator {}
+
+/// Fetches data from object store.
+/// If the object store supports blocking, use sequence blocking read.
+/// Otherwise, use concurrent read.
+pub async fn fetch_byte_ranges_helper(
+    file_path: String,
+    object_store: ObjectStore,
+    ranges: Vec<Range<usize>>,
+) -> Result<Vec<bytes::Bytes>> {
+    let ranges: Vec<_> = ranges
+        .iter()
+        .map(|range| range.start as u64..range.end as u64)
+        .collect();
+    if object_store.info().full_capability().blocking {
+        let block_object_store = object_store.blocking();
+
+        let f = move || -> Result<Vec<Bytes>> {
+            ranges
+                .into_iter()
+                .map(|range| {
+                    let data = block_object_store
+                        .read_with(&file_path)
+                        .range(range)
+                        .call()
+                        .map_err(|e| ParquetError::External(Box::new(e)))?;
+                    Ok::<_, ParquetError>(Bytes::from(data))
+                })
+                .collect::<Result<Vec<_>>>()
+        };
+
+        maybe_spawn_blocking(f).await
+    } else {
+        // TODO(QuenKar): may merge small ranges to a bigger range to optimize.
+        let mut handles = Vec::with_capacity(ranges.len());
+        for range in ranges {
+            let future_read = object_store.read_with(&file_path);
+            handles.push(async move {
+                let data = future_read
+                    .range(range.start..range.end)
+                    .await
+                    .map_err(|e| ParquetError::External(Box::new(e)))?;
+                Ok::<_, ParquetError>(Bytes::from(data))
+            });
+        }
+        let results = futures::future::try_join_all(handles).await?;
+        Ok(results)
+    }
+}
+
+//  Port from https://github.com/apache/arrow-rs/blob/802ed428f87051fdca31180430ddb0ecb2f60e8b/object_store/src/util.rs#L74-L83
+/// Takes a function and spawns it to a tokio blocking pool if available
+pub async fn maybe_spawn_blocking<F, T>(f: F) -> Result<T>
+where
+    F: FnOnce() -> Result<T> + Send + 'static,
+    T: Send + 'static,
+{
+    match tokio::runtime::Handle::try_current() {
+        Ok(runtime) => runtime
+            .spawn_blocking(f)
+            .await
+            .map_err(|e| ParquetError::External(Box::new(e)))?,
+        Err(_) => f(),
+    }
+}
