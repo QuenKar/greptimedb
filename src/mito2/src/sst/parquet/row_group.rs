@@ -33,30 +33,21 @@ use crate::cache::{CacheManagerRef, PageKey, PageValue};
 use crate::sst::file::FileId;
 use crate::sst::parquet::page_reader::CachedPageReader;
 
-/// An in-memory collection of column chunks
-pub struct InMemoryRowGroup<'a> {
+pub struct RowGroupFetcher<'a> {
     metadata: &'a RowGroupMetaData,
+    row_count: usize,
     page_locations: Option<&'a [Vec<PageLocation>]>,
     column_chunks: Vec<Option<Arc<ColumnChunkData>>>,
-    row_count: usize,
     region_id: RegionId,
     file_id: FileId,
     row_group_idx: usize,
     cache_manager: Option<CacheManagerRef>,
-    /// Cached pages for each column.
-    ///
-    /// `column_cached_pages.len()` equals to `column_chunks.len()`.
     column_cached_pages: Vec<Option<Arc<PageValue>>>,
     file_path: &'a str,
-    /// Object store.
     object_store: ObjectStore,
 }
 
-impl<'a> InMemoryRowGroup<'a> {
-    /// Creates a new [InMemoryRowGroup] by `row_group_idx`.
-    ///
-    /// # Panics
-    /// Panics if the `row_group_idx` is invalid.
+impl<'a> RowGroupFetcher<'a> {
     pub fn create(
         region_id: RegionId,
         file_id: FileId,
@@ -91,10 +82,10 @@ impl<'a> InMemoryRowGroup<'a> {
 
     /// Fetches the necessary column data into memory
     pub async fn fetch(
-        &mut self,
+        mut self,
         projection: &ProjectionMask,
         selection: Option<&RowSelection>,
-    ) -> Result<()> {
+    ) -> Result<InMemoryRowGroup<'a>> {
         if let Some((selection, page_locations)) = selection.zip(self.page_locations) {
             // If we have a `RowSelection` and an `OffsetIndex` then only fetch pages required for the
             // `RowSelection`
@@ -172,7 +163,7 @@ impl<'a> InMemoryRowGroup<'a> {
 
             if fetch_ranges.is_empty() {
                 // Nothing to fetch.
-                return Ok(());
+                return Ok(self.into_row_group());
             }
 
             let mut chunk_data =
@@ -199,7 +190,7 @@ impl<'a> InMemoryRowGroup<'a> {
             }
         }
 
-        Ok(())
+        Ok(self.into_row_group())
     }
 
     /// Fetches pages for columns if cache is enabled.
@@ -221,6 +212,38 @@ impl<'a> InMemoryRowGroup<'a> {
             });
     }
 
+    fn into_row_group(self) -> InMemoryRowGroup<'a> {
+        InMemoryRowGroup {
+            metadata: self.metadata,
+            page_locations: self.page_locations,
+            column_chunks: self.column_chunks,
+            row_count: self.row_count,
+            region_id: self.region_id,
+            file_id: self.file_id,
+            row_group_idx: self.row_group_idx,
+            cache_manager: self.cache_manager,
+            column_cached_pages: self.column_cached_pages,
+        }
+    }
+}
+
+/// An in-memory collection of column chunks
+pub struct InMemoryRowGroup<'a> {
+    metadata: &'a RowGroupMetaData,
+    page_locations: Option<&'a [Vec<PageLocation>]>,
+    column_chunks: Vec<Option<Arc<ColumnChunkData>>>,
+    row_count: usize,
+    region_id: RegionId,
+    file_id: FileId,
+    row_group_idx: usize,
+    cache_manager: Option<CacheManagerRef>,
+    /// Cached pages for each column.
+    ///
+    /// `column_cached_pages.len()` equals to `column_chunks.len()`.
+    column_cached_pages: Vec<Option<Arc<PageValue>>>,
+}
+
+impl<'a> InMemoryRowGroup<'a> {
     /// Creates a page reader to read column at `i`.
     fn column_page_reader(&self, i: usize) -> Result<Box<dyn PageReader>> {
         if let Some(cached_pages) = &self.column_cached_pages[i] {
