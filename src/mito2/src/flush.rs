@@ -344,6 +344,17 @@ impl RegionFlushTask {
                 file_size: sst_info.file_size,
             };
             part_writer.add_sst(file_meta);
+
+            // Add parquet file metadata to cache
+            if let Some(cache_manager) = &self.cache_manager {
+                if let Some(metadata) = sst_info.file_metadata {
+                    cache_manager.put_parquet_meta_data(
+                        self.region_id,
+                        file_id,
+                        Arc::new(metadata),
+                    );
+                }
+            }
         }
 
         if !part_writer.written_file_metas().is_empty() {

@@ -311,18 +311,31 @@ impl TwcsCompactionTask {
             let sst_layer = self.sst_layer.clone();
             let region_id = self.region_id;
             let mut sst_writer = part_writer.new_sst_writer(output.output_file_id);
+            let cache_manager = self.cache_manager.clone();
             futs.push(async move {
                 let reader = build_sst_reader(metadata, sst_layer, &output.inputs).await?;
                 // TODO(yingwen): move source to write_all().
                 let file_meta_opt = sst_writer
                     .write_all(Source::Reader(reader), &write_opts)
                     .await?
-                    .map(|sst_info| FileMeta {
-                        region_id,
-                        file_id: output.output_file_id,
-                        time_range: sst_info.time_range,
-                        level: output.output_level,
-                        file_size: sst_info.file_size,
+                    .map(|sst_info| {
+                        // Add parquet metadata to cache
+                        cache_manager.map(|cache| {
+                            sst_info.file_metadata.map(|metadata| {
+                                cache.put_parquet_meta_data(
+                                    region_id,
+                                    output.output_file_id,
+                                    Arc::new(metadata),
+                                );
+                            })
+                        });
+                        FileMeta {
+                            region_id,
+                            file_id: output.output_file_id,
+                            time_range: sst_info.time_range,
+                            level: output.output_level,
+                            file_size: sst_info.file_size,
+                        }
                     });
                 Ok(file_meta_opt)
             });
