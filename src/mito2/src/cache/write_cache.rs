@@ -16,14 +16,17 @@
 
 use std::sync::Arc;
 
+use bytes::buf;
 use object_store::manager::ObjectStoreManagerRef;
 use object_store::ObjectStore;
+use snafu::ResultExt;
 use store_api::metadata::RegionMetadataRef;
 use store_api::storage::{RegionId, SequenceNumber};
+use tokio::io::{AsyncReadExt, BufReader};
 use tokio::sync::mpsc::Sender;
 
 use crate::access_layer::sst_file_path;
-use crate::error::Result;
+use crate::error::{self, Result};
 use crate::read::Source;
 use crate::request::WorkerRequest;
 use crate::sst::file::{FileId, FileMeta, Level};
@@ -61,7 +64,40 @@ impl WriteCache {
     /// Adds files to the cache.
     pub(crate) async fn upload(&self, upload: Upload) -> Result<()> {
         // Add the upload metadata to the manifest.
-        unimplemented!()
+        // TODO(QuenKar): maybe concurrent better, also need test
+        for upload_part in upload.parts {
+            let len = upload_part.file_metas.len();
+            for file_meta in upload_part.file_metas {
+                // read parquet data from local store
+                // optimization: use a buffer reader to control memory usage.
+                let path = sst_file_path(&upload_part.region_dir, file_meta.file_id);
+                let reader = self
+                    .local_store
+                    .reader(&path)
+                    .await
+                    .context(error::OpenDalSnafu)?;
+                let buf_reader = BufReader::new(reader);
+
+                // write data to remote object store.
+                if let Some(storage) = &upload_part.storage {
+                    if let Some(object_store) = self.object_store_manager.find(&storage) {
+                        object_store
+                            .write(&path, bytes)
+                            .await
+                            .context(error::OpenDalSnafu)?
+                    }
+                } else {
+                    // use default object_store
+                    let object_store = self.object_store_manager.default_object_store();
+                    object_store
+                        .write_with(&path, bytes)
+                        .await
+                        .context(error::OpenDalSnafu)?
+                }
+            }
+        }
+
+        Ok(())
     }
 }
 
