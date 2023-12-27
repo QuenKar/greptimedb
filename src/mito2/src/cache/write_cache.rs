@@ -71,12 +71,11 @@ impl WriteCache {
                 // read parquet data from local store
                 // optimization: use a buffer reader to control memory usage.
                 let path = sst_file_path(&upload_part.region_dir, file_meta.file_id);
-                let reader = self
+                let bytes = self
                     .local_store
-                    .reader(&path)
+                    .read(&path)
                     .await
                     .context(error::OpenDalSnafu)?;
-                let buf_reader = BufReader::new(reader);
 
                 // write data to remote object store.
                 if let Some(storage) = &upload_part.storage {
