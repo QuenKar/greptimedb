@@ -16,24 +16,27 @@
 
 use std::sync::Arc;
 
-use bytes::buf;
+use bytes::{buf, BytesMut};
+use common_base::readable_size::ReadableSize;
 use object_store::manager::ObjectStoreManagerRef;
 use object_store::ObjectStore;
-use snafu::ResultExt;
+use snafu::{OptionExt, ResultExt};
 use store_api::metadata::RegionMetadataRef;
-use store_api::storage::{RegionId, SequenceNumber};
+use store_api::storage::{self, RegionId, SequenceNumber};
 use tokio::io::{AsyncReadExt, BufReader};
 use tokio::sync::mpsc::Sender;
 
 use crate::access_layer::sst_file_path;
 use crate::error::{self, Result};
 use crate::read::Source;
+use crate::region::opener;
 use crate::request::WorkerRequest;
 use crate::sst::file::{FileId, FileMeta, Level};
 use crate::sst::parquet::writer::ParquetWriter;
 use crate::sst::parquet::WriteOptions;
 use crate::wal::EntryId;
 
+const DEFAULT_BUFFER_SIZE: ReadableSize = ReadableSize::mb(5);
 /// A cache for uploading files to remote object stores.
 ///
 /// It keeps files in local disk and then sends files to object stores.
@@ -64,37 +67,51 @@ impl WriteCache {
     /// Adds files to the cache.
     pub(crate) async fn upload(&self, upload: Upload) -> Result<()> {
         // Add the upload metadata to the manifest.
-        // TODO(QuenKar): maybe concurrent better, also need test
-        for upload_part in upload.parts {
-            let len = upload_part.file_metas.len();
-            for file_meta in upload_part.file_metas {
-                // read parquet data from local store
-                // optimization: use a buffer reader to control memory usage.
-                let path = sst_file_path(&upload_part.region_dir, file_meta.file_id);
-                let bytes = self
-                    .local_store
-                    .read(&path)
-                    .await
-                    .context(error::OpenDalSnafu)?;
 
-                // write data to remote object store.
-                if let Some(storage) = &upload_part.storage {
-                    if let Some(object_store) = self.object_store_manager.find(&storage) {
-                        object_store
-                            .write(&path, bytes)
-                            .await
-                            .context(error::OpenDalSnafu)?
+        // TODO:(QuenKar): add metrics such as upload bytes, upload files count and time span
+        let mut handles = Vec::with_capacity(upload.parts.iter().map(|p| p.file_metas.len()).sum());
+        for upload_part in upload.parts {
+            if upload_part.storage.is_none() {
+                // skip if no storage is specified
+                continue;
+            }
+            // Safety: we have checked that `storage` is not `None`.
+            let storage = upload_part.storage.unwrap();
+            let remote_object_store =
+                self.object_store_manager.find(&storage).with_context(|| {
+                    error::ObjectStoreNotFoundSnafu {
+                        object_store: storage.clone(),
                     }
-                } else {
-                    // use default object_store
-                    let object_store = self.object_store_manager.default_object_store();
-                    object_store
-                        .write_with(&path, bytes)
+                })?;
+
+            for file_meta in upload_part.file_metas {
+                let path = sst_file_path(&upload_part.region_dir, file_meta.file_id);
+
+                handles.push(async move {
+                    let reader = self
+                        .local_store
+                        .reader_with(&path)
                         .await
-                        .context(error::OpenDalSnafu)?
-                }
+                        .context(error::OpenDalSnafu)?;
+                    // TODO(QuenKar): according to different remote object store, we may need to
+                    // use different buffer size for writer.
+                    let mut writer = remote_object_store
+                        .writer_with(&path)
+                        .buffer(DEFAULT_BUFFER_SIZE.as_bytes() as usize)
+                        .await
+                        .context(error::OpenDalSnafu)?;
+                    // transfer data from reader to writer
+                    futures::io::copy(reader, &mut writer);
+
+                    writer.close().await.context(error::OpenDalSnafu)?;
+
+                    Ok::<(), error::Error>(())
+                });
             }
         }
+
+        // join all handles
+        futures::future::try_join_all(handles).await?;
 
         Ok(())
     }
