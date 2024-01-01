@@ -25,6 +25,7 @@ use store_api::metadata::RegionMetadataRef;
 use store_api::storage::{self, RegionId, SequenceNumber};
 use tokio::io::{AsyncReadExt, BufReader};
 use tokio::sync::mpsc::Sender;
+use tokio::sync::Semaphore;
 
 use crate::access_layer::sst_file_path;
 use crate::error::{self, Result};
@@ -37,6 +38,7 @@ use crate::sst::parquet::WriteOptions;
 use crate::wal::EntryId;
 
 const DEFAULT_BUFFER_SIZE: ReadableSize = ReadableSize::mb(5);
+const MAX_UPLOAD_SST_PARALLELISM: usize = 16;
 /// A cache for uploading files to remote object stores.
 ///
 /// It keeps files in local disk and then sends files to object stores.
@@ -65,8 +67,10 @@ impl WriteCache {
     }
 
     /// Adds files to the cache.
-    pub(crate) async fn upload(&self, upload: Upload) -> Result<()> {
+    pub(crate) async fn upload(&self, upload: Upload) -> Result<Vec<()>> {
         // Add the upload metadata to the manifest.
+
+        let semaphore = Arc::new(Semaphore::new(MAX_UPLOAD_SST_PARALLELISM));
 
         // TODO:(QuenKar): add metrics such as upload bytes, upload files count and time span
         let mut handles = Vec::with_capacity(upload.parts.iter().map(|p| p.file_metas.len()).sum());
@@ -86,8 +90,11 @@ impl WriteCache {
 
             for file_meta in upload_part.file_metas {
                 let path = sst_file_path(&upload_part.region_dir, file_meta.file_id);
-
+                let semaphore = semaphore.clone();
                 handles.push(async move {
+                    // Safety: semaphore must exist.
+                    let _permit = semaphore.acquire().await.unwrap();
+
                     let reader = self
                         .local_store
                         .reader_with(&path)
@@ -111,9 +118,7 @@ impl WriteCache {
         }
 
         // join all handles
-        futures::future::try_join_all(handles).await?;
-
-        Ok(())
+        futures::future::try_join_all(handles).await
     }
 }
 
