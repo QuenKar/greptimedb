@@ -37,6 +37,7 @@ use crate::sst::parquet::writer::ParquetWriter;
 use crate::sst::parquet::WriteOptions;
 use crate::wal::EntryId;
 
+// Default buffer size for uploading
 const DEFAULT_BUFFER_SIZE: ReadableSize = ReadableSize::mb(5);
 const MAX_UPLOAD_SST_PARALLELISM: usize = 16;
 /// A cache for uploading files to remote object stores.
@@ -72,7 +73,7 @@ impl WriteCache {
 
         let semaphore = Arc::new(Semaphore::new(MAX_UPLOAD_SST_PARALLELISM));
 
-        // TODO:(QuenKar): add metrics such as upload bytes, upload files count and time span
+        // TODO:(QuenKar): add metrics
         let mut handles = Vec::with_capacity(upload.parts.iter().map(|p| p.file_metas.len()).sum());
         for upload_part in upload.parts {
             if upload_part.storage.is_none() {
@@ -101,7 +102,7 @@ impl WriteCache {
                         .await
                         .context(error::OpenDalSnafu)?;
                     // TODO(QuenKar): according to different remote object store, we may need to
-                    // use different buffer size for writer.
+                    // set different default buffer size for writer.
                     let mut writer = remote_object_store
                         .writer_with(&path)
                         .buffer(DEFAULT_BUFFER_SIZE.as_bytes() as usize)
