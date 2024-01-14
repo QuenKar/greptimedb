@@ -26,6 +26,7 @@ members = [
     "src/common/substrait",
     "src/common/telemetry",
     "src/common/test-util",
+    "src/common/geo",
     "src/common/time",
     "src/common/decimal",
     "src/common/version",
@@ -149,6 +150,7 @@ common-datasource = { path = "src/common/datasource" }
 common-decimal = { path = "src/common/decimal" }
 common-error = { path = "src/common/error" }
 common-function = { path = "src/common/function" }
+common-geo = { path = "src/common/geo" }
 common-greptimedb-telemetry = { path = "src/common/greptimedb-telemetry" }
 common-grpc = { path = "src/common/grpc" }
 common-grpc-expr = { path = "src/common/grpc-expr" }
