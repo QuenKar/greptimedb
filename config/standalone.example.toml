@@ -163,7 +163,13 @@ retry_delay = "500ms"
 # The working home directory.
 data_home = "/tmp/greptimedb/"
 # Storage type.
-type = "File"
+type = "S3"
+root = "zouwei"
+bucket = "test-bucket-0"
+access_key_id = "C3SMoxrNBYZSZIMAbpSu"
+secret_access_key = "V5w5n7m68f3imVLf3vsBV1fqCTTVPI0zEl9Zosoq"
+endpoint = "http://192.168.50.115:9000/"
+region = "mergeranges"
 # TTL for all tables. Disabled by default.
 # global_ttl = "7d"
 # Cache configuration for object storage such as 'S3' etc.

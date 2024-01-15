@@ -169,3 +169,119 @@ where
 fn new_task_join_error(e: tokio::task::JoinError) -> object_store::Error {
     object_store::Error::new(ErrorKind::Unexpected, "tokio task join failed").set_source(e)
 }
+
+/// Returns a sorted list of ranges that cover `raw_ranges`.
+///
+/// coalesce: the distance between ranges.
+///
+/// Basic idea:
+/// Ranges:\[(a0, b0),(a1, b1),(a2, b2)...\] -> \[(a0, b2),...\],
+/// If `a1-b0 <= coalesce` and `a2-b1 <= coalesce`, then merge (a0, b0), (a1, b1), (a2, b2) to (a0, b2).
+/// If range > max_range_size, it won't be merged.
+pub fn merge_ranges(
+    raw_ranges: &[Range<usize>],
+    coalesce: usize,
+    max_range_size: usize,
+) -> Vec<Range<usize>> {
+    if raw_ranges.is_empty() {
+        return vec![];
+    }
+
+    let mut ranges = raw_ranges.to_vec();
+    ranges.sort_unstable_by_key(|range| range.start);
+
+    let mut ret = Vec::with_capacity(ranges.len());
+    let mut start_idx = 0;
+    let mut end_idx = 1;
+
+    while start_idx != ranges.len() {
+        let mut range_end = ranges[start_idx].end;
+
+        while end_idx != ranges.len()
+            && range_end - ranges[start_idx].start <= max_range_size
+            && ranges[end_idx]
+                .start
+                .checked_sub(range_end)
+                .map(|delta| delta <= coalesce)
+                .unwrap_or(true)
+        {
+            range_end = range_end.max(ranges[end_idx].end);
+            end_idx += 1;
+        }
+
+        let start = ranges[start_idx].start;
+        let end = range_end;
+        ret.push(start..end);
+
+        start_idx = end_idx;
+        end_idx += 1;
+    }
+
+    ret
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_merge_ranges() {
+        let fetches = merge_ranges(&[], 0, 0);
+        assert!(fetches.is_empty());
+
+        let fetches = merge_ranges(&[0..3; 1], 0, 0);
+        assert_eq!(fetches, vec![0..3]);
+
+        let fetches = merge_ranges(&[0..2, 3..5], 0, 0);
+        assert_eq!(fetches, vec![0..2, 3..5]);
+
+        let fetches = merge_ranges(&[0..1, 1..2], 0, 1);
+        assert_eq!(fetches, vec![0..2]);
+
+        let fetches = merge_ranges(&[0..1, 2..72], 1, 4);
+        assert_eq!(fetches, vec![0..72]);
+
+        let fetches = merge_ranges(&[0..1, 56..72, 73..75], 1, 512);
+        assert_eq!(fetches, vec![0..1, 56..75]);
+
+        let fetches = merge_ranges(&[0..1, 56..72, 73..75], 1, 8);
+        assert_eq!(fetches, vec![0..1, 56..72, 73..75]);
+
+        let fetches = merge_ranges(&[0..1, 5..6, 7..9, 2..3, 4..6], 1, 10);
+        assert_eq!(fetches, vec![0..9]);
+
+        let fetches = merge_ranges(&[0..1, 5..6, 7..9, 2..3, 4..6], 1, 1);
+        assert_eq!(fetches, vec![0..3, 4..6, 5..9]);
+
+        let fetches = merge_ranges(&[0..1, 6..7, 8..9, 10..14, 9..10], 4, 10);
+        assert_eq!(fetches, vec![0..1, 6..14]);
+
+        let fetches = merge_ranges(&[1..3, 2..4, 3..5, 10..14], 0, 10);
+        assert_eq!(fetches, vec![1..5, 10..14]);
+
+        let fetches = merge_ranges(
+            &[
+                18781576..18867979,
+                18868061..18953346,
+                18953430..19038832,
+                19038914..19124728,
+                19124810..19210947,
+                19211031..19297046,
+                19297127..19383242,
+                19383327..19470108,
+                19470191..19556216,
+                19556299..19642233,
+                19642321..19642849,
+                19642918..19644971,
+                19645304..19676379,
+                19676437..19676510,
+            ],
+            256,
+            512 * 1024,
+        );
+        assert_eq!(
+            fetches,
+            vec![18781576..19383242, 19383327..19644971, 19645304..19676510]
+        );
+    }
+}
