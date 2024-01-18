@@ -18,6 +18,7 @@ use std::sync::Arc;
 
 use common_base::readable_size::ReadableSize;
 use common_telemetry::{debug, info};
+use futures::io::BufReader;
 use object_store::manager::ObjectStoreManagerRef;
 use object_store::ObjectStore;
 use snafu::ResultExt;
@@ -31,6 +32,8 @@ use crate::sst::index::IndexerBuilder;
 use crate::sst::parquet::writer::ParquetWriter;
 use crate::sst::parquet::{SstInfo, WriteOptions};
 use crate::sst::DEFAULT_WRITE_BUFFER_SIZE;
+
+const READ_BUFFER_SIZE: usize = 8 * 1024 * 1024;
 
 /// A cache for uploading files to remote object stores.
 ///
@@ -176,20 +179,22 @@ impl WriteCache {
             .await
             .context(error::OpenDalSnafu)?;
 
+        // Wrap a buffer reader here to make sure content is read in 8MiB chunks.
+        let mut buf_reader = BufReader::with_capacity(READ_BUFFER_SIZE, reader);
+
         let mut writer = remote_store
             .writer_with(upload_path)
             .buffer(DEFAULT_WRITE_BUFFER_SIZE.as_bytes() as usize)
             .await
             .context(error::OpenDalSnafu)?;
 
-        let bytes_written =
-            futures::io::copy(reader, &mut writer)
-                .await
-                .context(error::UploadSnafu {
-                    region_id,
-                    file_id,
-                    file_type,
-                })?;
+        let bytes_written = futures::io::copy_buf(&mut buf_reader, &mut writer)
+            .await
+            .context(error::UploadSnafu {
+                region_id,
+                file_id,
+                file_type,
+            })?;
 
         // Must close to upload all data.
         writer.close().await.context(error::OpenDalSnafu)?;
