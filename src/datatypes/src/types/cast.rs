@@ -41,6 +41,7 @@ pub struct CastOption {
 }
 
 impl CastOption {
+    #[allow(unused)]
     pub fn is_strict(&self) -> bool {
         self.strict
     }
@@ -57,6 +58,7 @@ impl CastOption {
 /// If success, return the casted value.
 /// If CastOption's strict is true, return an error if the cast fails.
 /// If CastOption's strict is false, return NULL if the cast fails.
+#[allow(unused)]
 pub fn cast_with_opt(
     src_value: Value,
     dest_type: &ConcreteDataType,
